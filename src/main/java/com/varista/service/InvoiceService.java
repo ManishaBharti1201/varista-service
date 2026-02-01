@@ -11,6 +11,7 @@ import com.varista.utils.PdfGenerator;
 import lombok.extern.slf4j.Slf4j;
 import com.varista.mapper.InvoiceMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import com.varista.utils.IndianCurrencyConverter;
@@ -36,6 +37,9 @@ public class InvoiceService {
 
     @Autowired
     InvoiceRepository invoiceRepository;
+
+    @Value("${invoice.directory}")
+    public  String INVOICE_DIRECTORY ;
 
 
     public InvoiceResponse createInvoice(InvoiceRequest invoiceRequest) throws IOException {
@@ -88,10 +92,11 @@ public class InvoiceService {
             // Converthtml to pdf and save to cloud storage or return the invoice id
 
             // Path: /app/invoices/{companyId}/INV-{id}.pdf
-            String directory = Constant.INVOICE_DIRECTORY + buyerInfo.getId();
+            String directory = INVOICE_DIRECTORY + buyerInfo.getId();
             // Ensure directory exists
             Path dirPath = Paths.get(directory);
             if (!dirPath.toFile().exists()) {
+                log.info("Creating directory for invoices at path: {}", dirPath.toAbsolutePath());
                 dirPath.toFile().mkdirs();
             }
             String fileName = invoiceData.getInvoiceNo() + ".pdf";
@@ -115,7 +120,7 @@ public class InvoiceService {
 
             return invoiceResponse;
         } catch (Exception e) {
-            log.error("Error generating invoice PDF: ", e);
+            log.error("Error creating invoice: {}", e.getMessage());
 
             throw e;
         }
