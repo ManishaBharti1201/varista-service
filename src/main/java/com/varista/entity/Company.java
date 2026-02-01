@@ -15,7 +15,7 @@ import java.util.Date;
 public class Company {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private String id;
+    private Long id;
     private String name;
     private Address address;
     private String gstin;

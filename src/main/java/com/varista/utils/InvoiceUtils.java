@@ -25,7 +25,7 @@ public class InvoiceUtils {
         return taxableValue.multiply(taxRate).divide(new BigDecimal("100"));
     }
 
-    public static synchronized String generate5DigitId() {
+    public static synchronized Long generate5DigitId() {
         final AtomicInteger sequence = new AtomicInteger(0);
         int lastMinute = -1;
         LocalTime now = LocalTime.now();
@@ -47,7 +47,7 @@ public class InvoiceUtils {
         }
 
         // Format: Minutes (padded to 4 digits) + Sequence (1 digit)
-        return String.format("%04d%d", currentMinute, seqValue);
+        return Long.getLong(String.format( "%04d%d", currentMinute, seqValue));
     }
 
 

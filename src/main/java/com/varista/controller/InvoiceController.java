@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -19,10 +20,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.Console;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,18 +42,27 @@ public class InvoiceController {
     }
 
     @GetMapping("/health")
-    @Operation(summary = "Service health check", description = "Simple endpoint to verify if the invoice service is responsive")
+    @Operation(summary = "Service health check", description = "Verifies if the invoice service is responsive")
     public String healthCheck() {
+        log.info("Health check initiated");
         return "Invoice Service is up and running!";
     }
 
     @PostMapping("/create")
+    @Operation(summary = "Create a new invoice", description = "Processes invoice request and generates an invoice record")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Invoice created successfully",
+                    content = @Content(schema = @Schema(implementation = InvoiceResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Internal server error during creation")
+    })
     public ResponseEntity<InvoiceResponse> createInvoice(@RequestBody InvoiceRequest commands) {
+        log.info("Request received to create invoice for customer: {}", commands.getBuyerId());
         try {
             InvoiceResponse response = invoiceService.createInvoice(commands);
+            log.info("Invoice created successfully with ID: {}", response.getInvoiceId());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error occurred while creating invoice: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
@@ -62,42 +70,57 @@ public class InvoiceController {
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete an invoice by ID", description = "Permanently removes an invoice record from the database")
     @ApiResponse(responseCode = "204", description = "Invoice deleted successfully")
+    @ApiResponse(responseCode = "404", description = "Invoice not found")
     public ResponseEntity<Void> deleteInvoice(
             @Parameter(description = "ID of the invoice to delete", example = "101")
             @PathVariable Long id) {
+        log.info("Request received to delete invoice ID: {}", id);
         invoiceService.deleteInvoice(id);
+        log.info("Invoice ID: {} deleted successfully", id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping(value = "/{id}/download", produces = MediaType.APPLICATION_PDF_VALUE)
     @Operation(
             summary = "Download invoice PDF",
-            description = "Generates and streams the invoice PDF file for download",
+            description = "Generates and streams the invoice PDF file for download based on ID format {id}-{clientId}",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
                             description = "PDF file returned successfully",
                             content = @Content(mediaType = "application/pdf", schema = @Schema(type = "string", format = "binary"))
                     ),
-                    @ApiResponse(responseCode = "404", description = "Invoice ID not found")
+                    @ApiResponse(responseCode = "404", description = "Invoice file not found on disk")
             }
     )
     public ResponseEntity<Resource> downloadInvoice(
-            @Parameter(description = "ID of the invoice to download", example = "101")
+            @Parameter(description = "ID of the invoice (Format: ID-CLIENTID)", example = "101-500")
             @PathVariable String id) throws IOException {
-        log.info("Downloading invoice with ID: {}", id);
-        String clientId = id.split("-")[1] +"/";
-        Path path = Paths.get(Constant.INVOICE_DIRECTORY +clientId+ id+".pdf");
-        if (!Files.exists(path)) {
-            log.info("Invoice file not found for ID: {}", id);
-            return ResponseEntity.notFound()
-                    .build();
+
+        log.info("Processing download request for invoice ID: {}", id);
+
+        try {
+            String[] parts = id.split("-");
+            String clientId = parts[1] + "/";
+            Path path = Paths.get(Constant.INVOICE_DIRECTORY + clientId + id + ".pdf");
+
+            if (!Files.exists(path)) {
+                log.warn("Invoice PDF not found at path: {}", path.toAbsolutePath());
+                return ResponseEntity.notFound().build();
+            }
+
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
+            log.info("Streaming PDF for invoice ID: {} (Size: {} bytes)", id, resource.contentLength());
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + id + ".pdf")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(resource);
+
+        } catch (ArrayIndexOutOfBoundsException e) {
+            log.error("Invalid ID format provided: {}. Expected format ID-CLIENTID", id);
+            return ResponseEntity.badRequest().build();
         }
-        ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + id + ".pdf")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(resource);
     }
 
     @GetMapping("/all")
@@ -110,29 +133,22 @@ public class InvoiceController {
                             description = "List of invoices retrieved successfully",
                             content = @Content(
                                     mediaType = "application/json",
-                                    array = @ArraySchema(
-                                            schema = @Schema(implementation = InvoiceData.class)
-                                    )
+                                    array = @ArraySchema(schema = @Schema(implementation = InvoiceData.class))
                             )
                     ),
-                    @ApiResponse(
-                            responseCode = "204",
-                            description = "No invoices found",
-                            content = @Content
-                    ),
-                    @ApiResponse(
-                            responseCode = "500",
-                            description = "Internal server error",
-                            content = @Content(
-                                    mediaType = "application/json",
-                                    schema = @Schema(implementation = ErrorResponse.class)
-                            )
-                    )
+                    @ApiResponse(responseCode = "204", description = "No invoices found")
             }
     )
-    public List<InvoiceData> listInvoices() {
-        return invoiceService.getAll();
+    public ResponseEntity<List<InvoiceData>> listInvoices() {
+        log.info("Fetching all invoices from database");
+        List<InvoiceData> invoices = invoiceService.getAll();
+
+        if (invoices.isEmpty()) {
+            log.info("No invoices found in the system");
+            return ResponseEntity.noContent().build();
+        }
+
+        log.info("Successfully retrieved {} invoices", invoices.size());
+        return ResponseEntity.ok(invoices);
     }
-
-
 }
