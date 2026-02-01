@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +35,9 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 @Tag(name = "Invoice Management", description = "Endpoints for generating, downloading, and deleting invoices")
 public class InvoiceController {
+
+    @Value("${invoice.directory}")
+    public  String INVOICE_DIRECTORY ;
 
     private final InvoiceService invoiceService;
 
@@ -102,7 +106,7 @@ public class InvoiceController {
         try {
             String[] parts = id.split("-");
             String clientId = parts[1] + "/";
-            Path path = Paths.get(Constant.INVOICE_DIRECTORY + clientId + id + ".pdf");
+            Path path = Paths.get(INVOICE_DIRECTORY + clientId + id + ".pdf");
 
             if (!Files.exists(path)) {
                 log.warn("Invoice PDF not found at path: {}", path.toAbsolutePath());
