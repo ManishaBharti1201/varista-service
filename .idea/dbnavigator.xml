@@ -11,8 +11,23 @@
   </component>
   <component name="DBNavigator.Project.DatabaseAssistantManager">
     <assistants>
-      <assistant-state connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" assistant-type="PUBLIC" default-profile-name="" selected-chat-id="" availability="AVAILABLE" acknowledgement="NONE" selected="true">
-        <tools />
+      <assistant-state connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" assistant-type="PUBLIC" default-profile-name="" selected-chat-id="50A0E52CB21247BBAD8870DDF1769658" availability="AVAILABLE" acknowledgement="ENGAGED" selected="true">
+        <chats>
+          <chat id="50A0E52CB21247BBAD8870DDF1769658" title="" session-signature="" timestamp="1769712078042">
+            <messages />
+            <context provider="" profile="" model="" action="" interactive="true" />
+          </chat>
+        </chats>
+        <tools>
+          <approvals>
+            <categories>
+              <category id="USER_INTERACTION" status="PROMPTED" />
+            </categories>
+            <types>
+              <type id="USER_PROMPTS" status="PROMPTED" />
+            </types>
+          </approvals>
+        </tools>
       </assistant-state>
       <assistant-state connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
         <tools />
@@ -36,7 +51,7 @@
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="0667ff92-18c7-4a94-830b-4032ddc7a5b8">
-      <console name="Connection 1" type="STANDARD" schema="varistaDB" session="Main"><![CDATA[INSERT INTO company (
+      <console name="Connection 1" type="STANDARD" schema="hrms_db" session="Main"><![CDATA[INSERT INTO company (
     address,
     created_at,
     email,
@@ -86,7 +101,124 @@ CREATE TABLE company (
     created_at DATETIME(6) -- Maps to LocalDateTime
 );
 
-select * from company;]]></console>
+select * from company ;
+
+delete from company where id > 207 ;
+
+insert into `company` (
+    `id`,
+    `address_line1`,
+    `address_line2`,
+    `city_state_zip`,
+    `created_at`,
+    `email`,
+    `gstin`,
+    `name`,
+    `phone`
+)
+values
+(201,
+ 'Plot 12, Industrial Area Phase 1',
+ 'Near Metro Station',
+ 'Delhi - 110020',
+ '2026-01-30 10:00:00',
+ 'info@techsphere.in',
+ '07AABCT1234F1Z2',
+ 'TechSphere Solutions Pvt Ltd',
+ '+91-9812345678'),
+
+(202,
+ '5th Floor, Tower B',
+ 'Cyber City, Sector 21',
+ 'Gurgaon, Haryana - 122002',
+ '2026-01-30 10:05:00',
+ 'contact@greenleafexports.com',
+ '06AACCG5678L1Z9',
+ 'GreenLeaf Exports LLP',
+ '+91-9876501234'),
+
+(203,
+ 'No. 44, MG Road',
+ 'Opp. Central Mall',
+ 'Bengaluru, Karnataka - 560001',
+ '2026-01-30 10:10:00',
+ 'support@novacorp.in',
+ '29AABCN7890Q1Z5',
+ 'NovaCorp Engineering Services',
+ '+91-9900123456'),
+
+(204,
+ '12/3 Industrial Estate',
+ 'Near Railway Station',
+ 'Pune, Maharashtra - 411001',
+ '2026-01-30 10:15:00',
+ 'sales@blueoceantraders.com',
+ '27AACCB2345H1Z7',
+ 'BlueOcean Traders & Co.',
+ '+91-9823456789'),
+
+(205,
+ '2nd Floor, Sunrise Plaza',
+ 'Main Market Road',
+ 'Jaipur, Rajasthan - 302001',
+ '2026-01-30 10:20:00',
+ 'hello@sunriseindustries.in',
+ '08AABCS5432K1Z3',
+ 'Sunrise Industries Pvt Ltd',
+ '+91-9786543210');
+
+drop database hrmsdb;]]></console>
+      <console name="Connection 2" type="STANDARD" schema="hrms_db" session="Main"><![CDATA[INSERT INTO company (
+    address,
+    created_at,
+    email,
+    GSTIN,
+    name,
+    phone
+
+) VALUES (
+    '123 Main St, City, State, Zip',
+    NOW(),
+    'contact@example.com',
+    '12ABCDE3456F7G8',
+    'Example Corp',
+    555-1234
+);
+
+
+INSERT INTO invoice (
+id,
+    company_id,
+    created_at,
+    invoice_number,
+    issue_date,
+    status,
+    total_amount,
+    updated_at
+) VALUES (
+1,
+    1,                                  -- Example company_id (integer)
+    NOW(),                             -- Example due_date (date string)
+    'INV-2026-001',                       -- Example invoice_number (string)
+    NOW(),                         -- Example issue_date (date string)
+   'Pending',                            -- Example status (string)
+    1500.75,                              -- Example total_amount (decimal/numeric)
+    NOW()                                 -- Example updated_at (timestamp/datetime)
+);
+
+drop table invoice;
+
+CREATE TABLE company (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    address VARCHAR(255) NOT NULL,
+    gstin VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone DECIMAL(20, 0), -- Maps to BigDecimal; adjust precision/scale if needed
+    created_at DATETIME(6) -- Maps to LocalDateTime
+);
+
+select * from invoice;]]></console>
       <console name="TableSetup" type="STANDARD" schema="varistaDB" session="Main"><![CDATA[create TABLE users (
     id serial primary key,
     username varchar(50) unique not null,
@@ -127,10 +259,7 @@ create table invoices (
   </component>
   <component name="DBNavigator.Project.DatabaseFileManager">
     <open-files>
-      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="schemas/varistaDB/tables/company" />
-      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="schemas/varistaDB/tables/invoice" />
       <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="consoles/Connection 1" />
-      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="consoles/TableSetup" />
     </open-files>
   </component>
   <component name="DBNavigator.Project.DatabasePrerequisiteManager">
@@ -140,6 +269,8 @@ create table invoices (
     <connection id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" />
   </component>
   <component name="DBNavigator.Project.DatasetFilterManager">
+    <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="hrms_db.company" active-filter-id="EMPTY_FILTER" />
+    <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="hrms_db.invoice" active-filter-id="EMPTY_FILTER" />
     <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="varistaDB.invoice" active-filter-id="EMPTY_FILTER" />
     <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="varistaDB.companies" active-filter-id="EMPTY_FILTER" />
     <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="varistaDB.company" active-filter-id="EMPTY_FILTER" />
@@ -174,14 +305,14 @@ create table invoices (
           <url-type value="DATABASE" />
           <host value="192.168.0.228" />
           <port value="3306" />
-          <database value="varistaDB" />
+          <database value="hrmsDB" />
           <tns-folder value="" />
           <tns-profile value="" />
           <server-type value="" />
           <protocol value="" />
           <url-parameters />
           <type value="USER_PASSWORD" />
-          <user value="intellij" />
+          <user value="hrms_user" />
           <token-type value="" />
           <token-config-file value="" />
           <token-profile value="" />
@@ -191,10 +322,10 @@ create table invoices (
           <azure-token-tenant-id value="" />
           <azure-token-client-id value="" />
           <azure-token-client-certificate-file value="" />
-          <session-user value="intellij@192.168.0.204" />
+          <session-user value="hrms_user@192.168.0.222" />
         </database>
         <properties>
-          <auto-commit value="false" />
+          <auto-commit value="true" />
         </properties>
         <ssh-settings>
           <active value="false" />
@@ -432,7 +563,6 @@ create table invoices (
           <content-type name="JSON" enabled="true" />
           <content-type name="JSON5" enabled="true" />
           <content-type name="Groovy" enabled="true" />
-          <content-type name="AIDL" enabled="true" />
           <content-type name="YAML" enabled="true" />
           <content-type name="Manifest" enabled="true" />
         </content-types>

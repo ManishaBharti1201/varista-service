@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Tax Invoice</title>
+    <style type="text/css">
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Calibre, Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+        }
+
+        .invoice-container {
+            max-width: 900px;
+            width: 100%;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        td,
+        th {
+            border: 1px solid #000;
+            padding: 5px;
+            font-size: 8pt;
+            vertical-align: top;
+        }
+
+        .header-cell {
+            text-align: center;
+            font-weight: bold;
+            font-size: 8pt;
+            padding: 2px;
+        }
+
+        .company-info {
+            padding: 5px;
+            font-size: 8pt;
+            line-height: 1.4;
+        }
+
+        .buyer-info {
+            padding: 5px;
+            font-size: 8pt;
+            line-height: 1.4;
+        }
+
+        .field-label {
+            font-size: 8pt;
+            color: #333;
+        }
+
+        .field-value {
+            font-size: 8pt;
+            font-weight: bold;
+        }
+
+        .goods-header {
+            background-color: #f0f0f0;
+            text-align: center;
+            font-weight: bold;
+            font-size: 8pt;
+            padding: 5px;
+        }
+
+        .goods-row {
+            text-align: center;
+            font-size: 8pt;
+            height: 22px;
+            border-left: 1px solid #000;
+            border-right: 1px solid #000;
+            border-top: none;
+            border-bottom: none;
+        }
+
+        .goods-row.first-item {
+            border-top: 1px solid #000;
+        }
+
+        .goods-row.description {
+            text-align: left;
+            padding-left: 5px;
+        }
+
+        .total-row {
+            font-weight: bold;
+            background-color: #f9f9f9;
+            border-top: 1px solid #000 !important;
+            border-bottom: 1px solid #000 !important;
+        }
+
+        .amount-words {
+            padding: 5px;
+            font-size: 8pt;
+        }
+
+        .tax-section {
+            font-size: 8pt;
+        }
+
+        .declaration-section {
+            min-height: 80px;
+            padding: 5px;
+            font-size: 8pt;
+            vertical-align: top;
+        }
+
+        .bank-details {
+            padding: 5px;
+            font-size: 8pt;
+            line-height: 1.6;
+        }
+
+        .signature-section {
+            text-align: right;
+            padding: 10px;
+            font-size: 8pt;
+        }
+
+        .company-name-sig {
+            font-weight: bold;
+            margin-bottom: 40px;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 8pt;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Remove internal borders for goods items */
+        tr.goods-row td {
+            border-top: none;
+            border-bottom: none;
+        }
+
+        tr.goods-row.last-item td {
+            border-bottom: 1px solid #000;
+        }
+    </style>
+</head>
+
+<body>
+<div class="invoice-container" style="font-family:Calibri">
+    <table>
+        <!-- Header -->
+        <tr>
+            <td colspan="7" class="header-cell">Tax Invoice</td>
+        </tr>
+
+        <!-- Company and Invoice Details Row -->
+        <tr>
+            <td colspan="3" rowspan="3" class="company-info">
+                <strong>Varista Industrial Solutions</strong><br></br>
+                1st Floor, House No/Flat No 275,<br></br>
+                Street - Narhat, City - Punaul,<br></br>
+                District - Nawada, Bihar - 805103<br></br>
+                GSTIN/UIN: 10CPRPK4671P1ZA<br></br>
+                E-Mail: varistaengineeringsolution@gmail.com
+            </td>
+            <td colspan="2" class="field-label">Invoice No.<br></br><strong>{{invoice_number}}</strong></td>
+
+            <td colspan="2" class="field-label">Dated<br></br><strong>{{invoice_date}}</strong></td>
+
+        </tr>
+        <tr>
+            <td colspan="2" class="field-label">Delivery Note</td>
+            <td colspan="2" class="field-label">Mode/Terms of Payment</td>
+        </tr>
+        <tr>
+            <td colspan="2" class="field-label">Supplier's Ref.</td>
+            <td colspan="2" class="field-label">Other Reference(s)</td>
+        </tr>
+
+        <!-- Buyer Info and Details Row 1 -->
+        <tr>
+            <td colspan="3" rowspan="4" class="buyer-info">
+                Buyer<br></br>
+                <strong>{{buyer_name}}</strong><br></br>
+                {{buyer_address_line1}}<br></br>
+                {{buyer_address_line2}}<br></br>
+                {{buyer_address_line3}}<br></br>
+                GST: {{buyer_gst}}<br></br>
+                E-Mail: {{buyer_email}}
+            </td>
+
+        </tr>
+        <tr>
+            <td colspan="2" class="field-label">Buyer's Order No.<br></br>
+                <strong>{{buyer_order_number}}</strong>
+            </td>
+            <td colspan="2" class="field-value"><br></br></td>
+        </tr>
+        <tr>
+            <td colspan="2" class="field-label">Despatch Document No.</td>
+            <td colspan="2" class="field-label">Delivery Note Date</td>
+        </tr>
+        <tr>
+            <td colspan="2" class="field-label">Despatched through</td>
+            <td colspan="2" class="field-label">Destination</td>
+        </tr>
+        <tr>
+            <td colspan="1" class="field-label">Ph:</td>
+            <td colspan="6" class="field-label">{{buyer_phone}}</td>
+        </tr>
+    </table>
+    <table> <!-- Goods Table Header -->
+        <tr>
+            <td class="goods-header" style="width: 10%;">Sr. No.</td>
+            <td class="goods-header" style="width: 37%;">Description of Goods</td>
+            <td class="goods-header" style="width: 10%;">HSN/SAC</td>
+            <td class="goods-header" style="width: 10%;">Quantity</td>
+            <td class="goods-header" style="width: 10%;">Rate</td>
+            <td class="goods-header" style="width: 8%;">per</td>
+            <td class="goods-header" style="width: 15%;">Amount</td>
+        </tr>
+
+        <!-- Goods Rows (20 items) - No borders between items -->
+        <tr class="goods-row first-item">
+            <td>{{item_serial_number_1}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_1}}</td>
+            <td>{{item_hsn_1}}</td>
+            <td>{{item_quantity_1}}</td>
+            <td>{{item_rate_1}}</td>
+            <td>{{item_per_1}}</td>
+            <td>{{item_amount_1}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_2}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_2}}</td>
+            <td>{{item_hsn_2}}</td>
+            <td>{{item_quantity_2}}</td>
+            <td>{{item_rate_2}}</td>
+            <td>{{item_per_2}}</td>
+            <td>{{item_amount_2}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_3}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_3}}</td>
+            <td>{{item_hsn_3}}</td>
+            <td>{{item_quantity_3}}</td>
+            <td>{{item_rate_3}}</td>
+            <td>{{item_per_3}}</td>
+            <td>{{item_amount_3}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_4}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_4}}</td>
+            <td>{{item_hsn_4}}</td>
+            <td>{{item_quantity_4}}</td>
+            <td>{{item_rate_4}}</td>
+            <td>{{item_per_4}}</td>
+            <td>{{item_amount_4}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_5}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_5}}</td>
+            <td>{{item_hsn_5}}</td>
+            <td>{{item_quantity_5}}</td>
+            <td>{{item_rate_5}}</td>
+            <td>{{item_per_5}}</td>
+            <td>{{item_amount_5}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_6}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_6}}</td>
+            <td>{{item_hsn_6}}</td>
+            <td>{{item_quantity_6}}</td>
+            <td>{{item_rate_6}}</td>
+            <td>{{item_per_6}}</td>
+            <td>{{item_amount_6}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_7}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_7}}</td>
+            <td>{{item_hsn_7}}</td>
+            <td>{{item_quantity_7}}</td>
+            <td>{{item_rate_7}}</td>
+            <td>{{item_per_7}}</td>
+            <td>{{item_amount_7}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_8}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_8}}</td>
+            <td>{{item_hsn_8}}</td>
+            <td>{{item_quantity_8}}</td>
+            <td>{{item_rate_8}}</td>
+            <td>{{item_per_8}}</td>
+            <td>{{item_amount_8}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_9}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_9}}</td>
+            <td>{{item_hsn_9}}</td>
+            <td>{{item_quantity_9}}</td>
+            <td>{{item_rate_9}}</td>
+            <td>{{item_per_9}}</td>
+            <td>{{item_amount_9}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_10}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_10}}</td>
+            <td>{{item_hsn_10}}</td>
+            <td>{{item_quantity_10}}</td>
+            <td>{{item_rate_10}}</td>
+            <td>{{item_per_10}}</td>
+            <td>{{item_amount_10}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_11}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_11}}</td>
+            <td>{{item_hsn_11}}</td>
+            <td>{{item_quantity_11}}</td>
+            <td>{{item_rate_11}}</td>
+            <td>{{item_per_11}}</td>
+            <td>{{item_amount_11}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_12}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_12}}</td>
+            <td>{{item_hsn_12}}</td>
+            <td>{{item_quantity_12}}</td>
+            <td>{{item_rate_12}}</td>
+            <td>{{item_per_12}}</td>
+            <td>{{item_amount_12}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_13}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_13}}</td>
+            <td>{{item_hsn_13}}</td>
+            <td>{{item_quantity_13}}</td>
+            <td>{{item_rate_13}}</td>
+            <td>{{item_per_13}}</td>
+            <td>{{item_amount_13}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_14}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_14}}</td>
+            <td>{{item_hsn_14}}</td>
+            <td>{{item_quantity_14}}</td>
+            <td>{{item_rate_14}}</td>
+            <td>{{item_per_14}}</td>
+            <td>{{item_amount_14}}</td>
+        </tr>
+        <tr class="goods-row">
+            <td>{{item_serial_number_15}}</td>
+            <td style="text-align: left; padding-left: 5px;">{{item_description_15}}</td>
+            <td>{{item_hsn_15}}</td>
+            <td>{{item_quantity_15}}</td>
+            <td>{{item_rate_15}}</td>
+            <td>{{item_per_15}}</td>
+            <td>{{item_amount_15}}</td>
+        </tr>
+        <tr class="goods-row last-item">
+            <td></td>
+            <td style="text-align: right; padding-right: 10px; font-style: italic;">Igst A/c. Round off
+            </td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td>{{igst_roundoff}}</td>
+        </tr>
+
+        <!-- Igst A/c Round off Row -->
+        <!-- <tr class="goods-row total-row">
+        <td colspan="2"></td>
+        <td colspan="4" style="text-align: right; padding-right: 10px; font-style: italic;">Igst A/c. Round off
+        </td>
+        <td>{{igst_roundoff}}</td>
+    </tr> -->
+
+        <!-- Total Row -->
+        <tr class="goods-row total-row">
+            <td></td>
+            <td style="text-align: right; padding-right: 10px;">Total</td>
+
+            <td></td>
+
+            <td>{{total_quantity}}</td>
+            <td></td>
+            <td></td>
+            <td>{{total_amount}}</td>
+        </tr>
+    </table>
+    <table>
+        <tr>
+            <td colspan="7" class="amount-words">
+                Amount Chargeable (in words)<br></br>
+                INR: <strong>{{amount_in_words}}</strong>
+            </td>
+        </tr>
+
+        <!-- Tax Details Section -->
+        <tr>
+            <td rowspan="2" class="tax-section" style="width: 12%; text-align: center;">HSN/SAC</td>
+            <td rowspan="2" class="tax-section" style="width: 12%; text-align: center;">Taxable<br></br>Value</td>
+            <td colspan="2" class="tax-section" style="text-align: center;">Central Tax</td>
+            <td colspan="2" class="tax-section" style="text-align: center;">State Tax</td>
+            <td rowspan="2" class="tax-section" style="width: 12%; text-align: center;">Total<br></br>Tax Amount</td>
+        </tr>
+        <tr>
+            <td class="tax-section" style="text-align: center;">Rate</td>
+            <td class="tax-section" style="text-align: center;">Amount</td>
+            <td class="tax-section" style="text-align: center;">Rate</td>
+            <td class="tax-section" style="text-align: center;">Amount</td>
+        </tr>
+        <tr class="tax-section">
+            <td style="text-align: center;">{{hsn_sac}}</td>
+            <td style="text-align: center;">{{taxable_value}}</td>
+            <td style="text-align: center;">{{tax_rate}}</td>
+            <td style="text-align: center;">{{tax_amount}}</td>
+            <td style="text-align: center;">0</td>
+            <td style="text-align: center;">0</td>
+            <td style="text-align: center;">{{total_amount}}</td>
+        </tr>
+
+        <!-- Declaration and Bank Details -->
+        <tr>
+            <td colspan="4" class="declaration-section">
+                <strong>Declaration</strong>
+            </td>
+            <td colspan="3" class="bank-details">
+                <strong>Company's Bank Details</strong><br></br>
+                Bank Name: {{bank_name}}<br></br>
+                A/c No.: {{account_number}}<br></br>
+                Branch &amp; IFSC: {{ifsc_code}}
+            </td>
+        </tr>
+
+        <!-- Signature Section -->
+        <tr>
+            <td colspan="7" class="signature-section">
+                <div class="company-name-sig">for {{company_name}}</div>
+                <div>Authorised Signatory</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="footer">This is a Computer Generated Invoice</div>
+</div>
+</body>
+
+</html>

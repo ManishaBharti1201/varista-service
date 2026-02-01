@@ -14,13 +14,11 @@ import java.util.Date;
 @Data
 public class Invoice {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String company_Id;
-    private LocalDateTime created_at;
-    private String invoice_number;
-    private LocalDateTime issue_date;
+    private Long companyId;
+    private LocalDateTime createdAt;
+    private String invoiceNumber;
     private String status;
-    private BigDecimal total_amount;
-    private LocalDateTime updated_at;
+    private BigDecimal totalAmount;
+    private LocalDateTime updatedAt;
 }

@@ -4,7 +4,8 @@ import lombok.Data;
 
 @Data
 public class InvoiceResponse {
-    private String invoiceId;
+    private Long invoiceId;
+    private String invoiceNumber;
     private String createdAt;
     private String amount;
     private String status;

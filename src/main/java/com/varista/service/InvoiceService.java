@@ -1,5 +1,6 @@
 package com.varista.service;
 
+import com.varista.constant.Constant;
 import com.varista.entity.Company;
 import com.varista.entity.Invoice;
 import com.varista.model.InvoiceData;
@@ -18,6 +19,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -33,70 +37,79 @@ public class InvoiceService {
     @Autowired
     InvoiceRepository invoiceRepository;
 
-    public InvoiceResponse createInvoicePdfBase64(InvoiceRequest invoiceRequest) throws IOException {
+
+    public InvoiceResponse createInvoice(InvoiceRequest invoiceRequest) throws IOException {
         // Convert InvoiceRequest to InvoiceData (mocked for this example)
         InvoiceResponse invoiceResponse = new InvoiceResponse();
         try {
             String htmlTemplate;
             InvoiceData invoiceData = new InvoiceData();
 
-            Company buyerInfo = companyService.getCompanyById(Long.valueOf(invoiceRequest.getBuyerId()));
+            Company buyerInfo = companyService.getCompanyById((long) invoiceRequest.getBuyerId());
 
             invoiceData = invoiceMapper.mapInvoiceRequestToInvoiceData(invoiceRequest, buyerInfo);
 
-            ClassPathResource resource = new ClassPathResource("invoice_template.html");
+            ClassPathResource resource = new ClassPathResource("new_invoice_template.html");
             try (InputStream inputStream = resource.getInputStream()) {
                 htmlTemplate = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             }
 
+            htmlTemplate = generateItemRowsHtml(invoiceData.getItems(), htmlTemplate);
+
             // Populate the HTML template (simplified example)
             String populatedHtml = htmlTemplate
-                    .replace("{{invoice_no}}", invoiceData.getInvoiceNo())
-                    .replace("{{dated}}", invoiceData.getDated())
-                    .replace("{{seller_name}}", invoiceData.getSeller().getName())
-                    .replace("{{seller_address}}", invoiceData.getSeller().getAddress())
-                    .replace("{{seller_gstin}}", invoiceData.getSeller().getGstin())
-                    .replace("{{seller_email}}", invoiceData.getSeller().getEmail())
-                    .replace("{{buyer_name}}", invoiceData.getBuyer().getName())
-                    .replace("{{buyer_address}}", invoiceData.getBuyer().getAddress())
-                    .replace("{{buyer_gstin}}", invoiceData.getBuyer().getGstin())
+                    .replace("{{invoice_number}}", invoiceData.getInvoiceNo())
+                    .replace("{{invoice_date}}", invoiceData.getDated())
+                    .replace("{{buyer_name}}", invoiceData.getBuyer().getName().replace("&", "&amp;"))
+                    .replace("{{buyer_address_line1}}", invoiceData.getBuyer().getAddress().getAddressLine1())
+                    .replace("{{buyer_address_line2}}", invoiceData.getBuyer().getAddress().getAddressLine2())
+                    .replace("{{buyer_address_line3}}", invoiceData.getBuyer().getAddress().getCityStateZip())
+                    .replace("{{buyer_gst}}", invoiceData.getBuyer().getGstin())
                     .replace("{{buyer_email}}", invoiceData.getBuyer().getEmail())
-                    .replace("{{buyer_phone}}", invoiceData.getBuyer().getPhone().toString())
-                    .replace("{{buyer_order_no}}", invoiceData.getBuyerOrderNo())
-                    .replace("{{item_rows}}", generateItemRowsHtml(invoiceData.getItems()))
+                    .replace("{{buyer_phone}}", invoiceData.getBuyer().getPhone())
+                    .replace("{{buyer_order_number}}", invoiceData.getBuyerOrderNo())
                     .replace("{{hsn_sac}}", invoiceData.getHsnSac().toString())
                     .replace("{{total_quantity}}", String.valueOf(
                             invoiceData.getItems().stream().mapToDouble(InvoiceData.Item::getQuantity).sum()))
-                    .replace("{{total_amount_in_words}}", IndianCurrencyConverter.convertRupeesToWords(BigDecimal.valueOf(
+                    .replace("{{amount_in_words}}", IndianCurrencyConverter.convertRupeesToWords(BigDecimal.valueOf(
                             invoiceData.getItems().stream().mapToDouble(InvoiceData.Item::getAmount).sum())))
-                    .replace("{{total_taxable_value}}", String.valueOf(invoiceData.getTotalTaxableValue()))
-                    .replace("{{central_tax_rate}}", String.valueOf(invoiceData.getCentralTaxRate()))
-                    .replace("{{central_tax_amount}}", String.valueOf(invoiceData.getCentralTaxAmount()))
-                    .replace("{{state_tax_rate}}", String.valueOf(invoiceData.getStateTaxRate()))
-                    .replace("{{state_tax_amount}}", String.valueOf(invoiceData.getStateTaxAmount()))
-                    .replace("{{igst_amount}}", String.valueOf(invoiceData.getIgstAmount()))
+                    .replace("{{taxable_value}}", String.valueOf(invoiceData.getTotalTaxableValue()))
+                    .replace("{{tax_rate}}", String.valueOf(invoiceData.getTaxRate()))
+                    .replace("{{tax_amount}}", String.valueOf(invoiceData.getTaxAmount()))
+                    .replace("{{igst_roundoff}}", String.valueOf(invoiceData.getTaxAmount()))
                     .replace("{{total_amount}}", String.valueOf(invoiceData.getTotalAmount()))
                     .replace("{{bank_name}}", invoiceData.getBankDetails().getBankName())
                     .replace("{{account_number}}", invoiceData.getBankDetails().getAccNo())
-                    .replace("{{ifsc_code}}", invoiceData.getBankDetails().getIfsc());
+                    .replace("{{ifsc_code}}", invoiceData.getBankDetails().getIfsc())
+                    .replace("{{company_name}}", "Varista Industrial Solutions");
 
             System.out.println("HTML template populated. Ready for PDF conversion.");
 
             // Converthtml to pdf and save to cloud storage or return the invoice id
 
+            // Path: /app/invoices/{companyId}/INV-{id}.pdf
+            String directory = Constant.INVOICE_DIRECTORY + buyerInfo.getId();
+            // Ensure directory exists
+            Path dirPath = Paths.get(directory);
+            if (!dirPath.toFile().exists()) {
+                dirPath.toFile().mkdirs();
+            }
+            String fileName = invoiceData.getInvoiceNo() + ".pdf";
+            String fullPath = directory + "/" + fileName;
+            //PdfGenerator.generateInvoicePdfToFile(populatedHtml, fullPath);
+            PdfGenerator.generatePdfFromHtml(populatedHtml, fullPath);
 
-            PdfGenerator.generateInvoicePdfToFile(populatedHtml, "generated_invoice.pdf");
-
-
-
-            invoiceResponse.setInvoiceId("TI/2005/08");
-            invoiceResponse.setCreatedAt("2024-08-15");
+            invoiceResponse.setInvoiceId(invoiceData.getInvoiceId());
+            invoiceResponse.setInvoiceNumber(invoiceData.getInvoiceNo());
+            invoiceResponse.setCreatedAt(LocalDateTime.now().toString());
             invoiceResponse.setAmount(invoiceData.getTotalAmount().toString());
             invoiceResponse.setStatus("SUCCESS");
             invoiceResponse.setMessage("Invoice PDF generated successfully");
 
             // save the invoiceinfo to database if needed
-            Invoice invoice = invoiceMapper.mapInvoiceRequestToInvoiceEntity(invoiceRequest, invoiceResponse.getInvoiceId());
+            Invoice invoice = invoiceMapper.mapInvoiceRequestToInvoiceEntity(invoiceRequest);
+            invoice.setId(invoiceData.getInvoiceId());
+            invoice.setInvoiceNumber(invoiceData.getInvoiceNo());
 
             invoiceRepository.save(invoice);
 
@@ -108,26 +121,52 @@ public class InvoiceService {
         }
     }
 
-    private String generateItemRowsHtml(List<InvoiceData.Item> items) {
-        StringBuilder rowsHtml = new StringBuilder();
-        for (int i = 0; i < items.size(); i++) {
-            rowsHtml.append("<tr style=\"height:20pt\">");
-            rowsHtml.append("<td style=\"width:37pt;border-left-style:solid;border-left-width:2pt;border-left-color:#606060;\">\n" +
-                    "            <p class=\"s3\" style=\"padding-top: 5pt;text-align: center;\">").append(i + 1).append("</p></td>");  //pass serial number here
-            rowsHtml.append("<td style=\"width:37pt;border-left-style:solid;border-left-width:2pt;border-left-color:#606060;\">\n" +
-                    "            <p class=\"s3\" style=\"padding-top: 5pt;text-align: center;\">").append(items.get(i).getDescription()).append("</p></td>");
-            rowsHtml.append("<td style=\"width:37pt;border-left-style:solid;border-left-width:2pt;border-left-color:#606060;\">\n" +
-                    "            <p class=\"s3\" style=\"padding-top: 5pt;text-align: center;\">").append(items.get(i).getHsnSac()).append("</p></td>");
-            rowsHtml.append("<td style=\"width:37pt;border-left-style:solid;border-left-width:2pt;border-left-color:#606060;\">\n" +
-                    "            <p class=\"s3\" style=\"padding-top: 5pt;text-align: center;\">").append(items.get(i).getQuantity()).append("</p></td>");
-            rowsHtml.append("<td style=\"width:37pt;border-left-style:solid;border-left-width:2pt;border-left-color:#606060;\">\n" +
-                    "            <p class=\"s3\" style=\"padding-top: 5pt;text-align: center;\">").append(items.get(i).getRate()).append("</p></td>");
-            rowsHtml.append("<td style=\"width:37pt;border-left-style:solid;border-left-width:2pt;border-left-color:#606060;\">\n" +
-                    "            <p class=\"s3\" style=\"padding-top: 5pt;text-align: center;\">").append(items.get(i).getUnit()).append("</p></td>");
-            rowsHtml.append("<td style=\"width:37pt;border-left-style:solid;border-left-width:2pt;border-left-color:#606060;border-right-style:solid;border-right-width:2pt;border-right-color:#606060;\">\n" +
-                    "            <p class=\"s3\" style=\"padding-top: 5pt;text-align: center;\">").append(items.get(i).getAmount()).append("</p></td>");
-            rowsHtml.append("</tr>");
+    private String generateItemRowsHtml(List<InvoiceData.Item> items, String itemTable) {
+        for (int i = 0; i < 15; i++) {
+            int row = i + 1; // because placeholders start from 1
+
+            if (i < items.size()) {
+                InvoiceData.Item item = items.get(i);
+
+                itemTable = itemTable
+                        .replace("{{item_serial_number_" + row + "}}", String.valueOf(item.getSrNo()))
+                        .replace("{{item_description_" + row + "}}", item.getDescription())
+                        .replace("{{item_hsn_" + row + "}}", item.getHsnSac())
+                        .replace("{{item_quantity_" + row + "}}", String.valueOf(item.getQuantity()))
+                        .replace("{{item_rate_" + row + "}}", String.valueOf(item.getRate()))
+                        .replace("{{item_per_" + row + "}}", item.getUnit())
+                        .replace("{{item_amount_" + row + "}}", String.valueOf(item.getAmount()));
+            } else {
+                // No item for this row → replace with empty values
+                itemTable = itemTable
+                        .replace("{{item_serial_number_" + row + "}}", "")
+                        .replace("{{item_description_" + row + "}}", "")
+                        .replace("{{item_hsn_" + row + "}}", "")
+                        .replace("{{item_quantity_" + row + "}}", "")
+                        .replace("{{item_rate_" + row + "}}", "")
+                        .replace("{{item_per_" + row + "}}", "")
+                        .replace("{{item_amount_" + row + "}}", "");
+            }
         }
-        return rowsHtml.toString();
+
+        return itemTable;
+
     }
+
+    public void deleteInvoice(Long id) {
+        invoiceRepository.deleteById(id);
+    }
+
+    public byte[] generateInvoicePdf(Long id) {
+        var pdf = invoiceRepository.getReferenceById(id);
+
+        return null;
+    }
+
+    public List<InvoiceData> getAll() {
+        List<Invoice> invoices = invoiceRepository.findAll();
+
+        return invoiceMapper.mapToInvoiceData(invoices);
+    }
+
 }

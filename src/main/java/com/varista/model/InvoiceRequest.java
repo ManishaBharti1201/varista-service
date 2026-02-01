@@ -2,27 +2,23 @@ package com.varista.model;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 
 @Data
 public class InvoiceRequest {
-
-    private String buyerId;
+    private Long buyerId;
     private String buyerOrderNo;
-    private BigInteger hsnSac;
-    private double centralTaxRate;
-    private double stateTaxRate;
-    private double totalAmount;
-    private String bankName;
-    private String accountNumber;
-    private String ifscCode;
+    private double taxRate;
+    private BigDecimal taxAmt;
+    private BigDecimal taxableAmt;
+    private BigDecimal totalAmt;
     private List<ItemRequest> items;
-
     @Data
     public static class ItemRequest {
         private String description;
-        private String hsnSac;
+        private BigInteger hsnSac;
         private double quantity;
         private double rate;
         private String unit;

@@ -1,5 +1,6 @@
 package com.varista.entity;
 
+import com.varista.model.Address;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.Generated;
@@ -14,11 +15,12 @@ import java.util.Date;
 public class Company {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
     private String name;
-    private String address;
+    private Address address;
     private String gstin;
     private String email;
-    private BigDecimal phone;
+    private String phone;        // changed from BigDecimal → String
     private LocalDateTime createdAt;
+
 }
