@@ -1,0 +1,156 @@
+package com.varista.controller;
+
+import com.varista.entity.Quotation;
+import com.varista.model.QuotationResponse;
+import com.varista.service.QuotationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+
+@Slf4j
+@RestController
+@RequestMapping("/quotation")
+@CrossOrigin(origins = "*")
+@Tag(name = "Quotation Management", description = "Endpoints for generating, downloading, and deleting quotations")
+public class QuotationController {
+
+    @Value("${quotation.directory}")
+    public  String INVOICE_DIRECTORY ;
+
+    private final QuotationService quotationService;
+
+    public QuotationController(QuotationService quotationService) {
+        this.quotationService = quotationService;
+    }
+
+    @GetMapping("/health")
+    @Operation(summary = "Service health check", description = "Verifies if the quotation service is responsive")
+    public String healthCheck() {
+        log.info("Health check initiated");
+        return "Quotation Service is up and running!";
+    }
+
+    @PostMapping("/create")
+    @Operation(summary = "Create a new quotation", description = "Processes quotation request and generates an quotation record")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Quotation created successfully",
+                    content = @Content(schema = @Schema(implementation = QuotationResponse.class))),
+            @ApiResponse(responseCode = "500", description = "Internal server error during creation")
+    })
+    public ResponseEntity<Quotation> createQuotation(@RequestBody Quotation commands) {
+        log.info("Request received to create quotation for customer: {}", commands.getId());
+        try {
+            Quotation response = quotationService.createQuotation(commands);
+            log.info("Quotation created successfully with ID: {}", response.getId());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error occurred while creating quotation: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete an quotation by ID", description = "Permanently removes an quotation record from the database")
+    @ApiResponse(responseCode = "204", description = "Quotation deleted successfully")
+    @ApiResponse(responseCode = "404", description = "Quotation not found")
+    public ResponseEntity<Void> deleteQuotation(
+            @Parameter(description = "ID of the quotation to delete", example = "101")
+            @PathVariable Long id) {
+        log.info("Request received to delete quotation ID: {}", id);
+        quotationService.deleteQuotation(id);
+        log.info("Quotation ID: {} deleted successfully", id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping(value = "/{id}/download", produces = MediaType.APPLICATION_PDF_VALUE)
+    @Operation(
+            summary = "Download quotation PDF",
+            description = "Generates and streams the quotation PDF file for download based on ID format {id}-{clientId}",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "PDF file returned successfully",
+                            content = @Content(mediaType = "application/pdf", schema = @Schema(type = "string", format = "binary"))
+                    ),
+                    @ApiResponse(responseCode = "404", description = "Quotation file not found on disk")
+            }
+    )
+    public ResponseEntity<Resource> downloadQuotation(
+            @Parameter(description = "ID of the quotation (Format: ID-CLIENTID)", example = "101-500")
+            @PathVariable String id) throws IOException {
+
+        log.info("Processing download request for quotation ID: {}", id);
+
+        try {
+            String[] parts = id.split("-");
+            String clientId = parts[1] + "/";
+            Path path = Paths.get(INVOICE_DIRECTORY + clientId + id + ".pdf");
+
+            if (!Files.exists(path)) {
+                log.warn("Quotation PDF not found at path: {}", path.toAbsolutePath());
+                return ResponseEntity.notFound().build();
+            }
+
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
+            log.info("Streaming PDF for quotation ID: {} (Size: {} bytes)", id, resource.contentLength());
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + id + ".pdf")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(resource);
+
+        } catch (ArrayIndexOutOfBoundsException e) {
+            log.error("Invalid ID format provided: {}. Expected format ID-CLIENTID", id);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/all")
+    @Operation(
+            summary = "Get all quotations",
+            description = "Retrieves a list of all quotations stored in the system.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "List of quotations retrieved successfully",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = Quotation.class))
+                            )
+                    ),
+                    @ApiResponse(responseCode = "204", description = "No quotations found")
+            }
+    )
+    public ResponseEntity<List<Quotation>> listQuotations() {
+        log.info("Fetching all quotations from database");
+        List<Quotation> quotations = quotationService.getAll();
+
+        if (quotations.isEmpty()) {
+            log.info("No quotations found in the system");
+            return ResponseEntity.noContent().build();
+        }
+
+        log.info("Successfully retrieved {} quotations", quotations.size());
+        return ResponseEntity.ok(quotations);
+    }
+}
