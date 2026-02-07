@@ -1,6 +1,8 @@
 package com.varista.controller;
 
+import com.mysql.cj.x.protobuf.Mysqlx;
 import com.varista.entity.Quotation;
+import com.varista.model.QuotationRequest;
 import com.varista.model.QuotationResponse;
 import com.varista.service.QuotationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,7 +37,7 @@ import java.util.List;
 public class QuotationController {
 
     @Value("${quotation.directory}")
-    public  String INVOICE_DIRECTORY ;
+    public String INVOICE_DIRECTORY;
 
     private final QuotationService quotationService;
 
@@ -57,7 +59,7 @@ public class QuotationController {
                     content = @Content(schema = @Schema(implementation = QuotationResponse.class))),
             @ApiResponse(responseCode = "500", description = "Internal server error during creation")
     })
-    public ResponseEntity<Quotation> createQuotation(@RequestBody Quotation commands) {
+    public ResponseEntity<Quotation> createQuotation(@RequestBody QuotationRequest commands) {
         log.info("Request received to create quotation for customer: {}", commands.getId());
         try {
             Quotation response = quotationService.createQuotation(commands);
@@ -73,13 +75,20 @@ public class QuotationController {
     @Operation(summary = "Delete an quotation by ID", description = "Permanently removes an quotation record from the database")
     @ApiResponse(responseCode = "204", description = "Quotation deleted successfully")
     @ApiResponse(responseCode = "404", description = "Quotation not found")
-    public ResponseEntity<Void> deleteQuotation(
-            @Parameter(description = "ID of the quotation to delete", example = "101")
-            @PathVariable Long id) {
+    public ResponseEntity<Void> deleteQuotation(@Parameter(description = "ID of the quotation to delete", example = "101")
+                                                @PathVariable Long id) {
+
         log.info("Request received to delete quotation ID: {}", id);
-        quotationService.deleteQuotation(id);
-        log.info("Quotation ID: {} deleted successfully", id);
-        return ResponseEntity.noContent().build();
+        try {
+            quotationService.deleteQuotation(id);
+            log.info("Quotation ID: {} deleted successfully", id);
+            return ResponseEntity.status(HttpStatus.OK)
+                    .build();
+        } catch (IOException e) {
+            log.error("Error occurred while deleting quotation ID: {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
     }
 
     @GetMapping(value = "/{id}/download", produces = MediaType.APPLICATION_PDF_VALUE)
@@ -95,34 +104,15 @@ public class QuotationController {
                     @ApiResponse(responseCode = "404", description = "Quotation file not found on disk")
             }
     )
-    public ResponseEntity<Resource> downloadQuotation(
-            @Parameter(description = "ID of the quotation (Format: ID-CLIENTID)", example = "101-500")
-            @PathVariable String id) throws IOException {
+    public ResponseEntity<Resource> downloadQuotation(@PathVariable Long id) throws IOException {
 
         log.info("Processing download request for quotation ID: {}", id);
+        Resource response = quotationService.downloadQuotation(id);
 
-        try {
-            String[] parts = id.split("-");
-            String clientId = parts[1] + "/";
-            Path path = Paths.get(INVOICE_DIRECTORY + clientId + id + ".pdf");
-
-            if (!Files.exists(path)) {
-                log.warn("Quotation PDF not found at path: {}", path.toAbsolutePath());
-                return ResponseEntity.notFound().build();
-            }
-
-            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
-            log.info("Streaming PDF for quotation ID: {} (Size: {} bytes)", id, resource.contentLength());
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + id + ".pdf")
-                    .contentType(MediaType.APPLICATION_PDF)
-                    .body(resource);
-
-        } catch (ArrayIndexOutOfBoundsException e) {
-            log.error("Invalid ID format provided: {}. Expected format ID-CLIENTID", id);
-            return ResponseEntity.badRequest().build();
-        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + id + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(response);
     }
 
     @GetMapping("/all")

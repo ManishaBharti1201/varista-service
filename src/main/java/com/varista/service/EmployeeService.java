@@ -1,12 +1,16 @@
 package com.varista.service;
 
+import ch.qos.logback.classic.pattern.EpochConverter;
 import com.varista.entity.Employee;
 
+import com.varista.model.LoginRequest;
+import com.varista.model.LoginResponse;
 import com.varista.repository.EmployeeRepository;
 import com.varista.utils.InvoiceUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -24,16 +28,14 @@ public class EmployeeService {
         return employeeRepository.findAll();
     }
 
-//    public Employee createEmployee(EmployeeInfo employeeInfo) {
-//        Employee employee = new Employee();
-//        employee.setId(InvoiceUtils.generate5DigitId());
-//        employee.setFirstName(employeeInfo.ge());
-//        employee.setLastName(employeeInfo.getAddress());
-//        employee.setGstin(employeeInfo.getGstin());
-//        employee.setEmail(employeeInfo.getEmail());
-//        employee.setPhone(employeeInfo.getPhone());
-//        employee.setCreatedAt(LocalDateTime.now());
-//        Employee savedEmployee = employeeRepository.save(employee);
-//        return savedEmployee;
-//    }
+
+    public Employee createEmployee(Employee employeeInfo) {
+        employeeInfo.setId(Instant.now().getEpochSecond());
+        Employee savedEmployee = employeeRepository.save(employeeInfo);
+        return savedEmployee;
+    }
+
+    public void deleteEmployee(Long id) {
+        employeeRepository.deleteById(id);
+    }
 }

@@ -3,6 +3,7 @@ package com.varista.service;
 import com.varista.constant.Constant;
 import com.varista.entity.Company;
 import com.varista.entity.Invoice;
+import com.varista.entity.Quotation;
 import com.varista.model.InvoiceData;
 import com.varista.model.InvoiceRequest;
 import com.varista.model.InvoiceResponse;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -39,7 +41,7 @@ public class InvoiceService {
     InvoiceRepository invoiceRepository;
 
     @Value("${invoice.directory}")
-    public  String INVOICE_DIRECTORY ;
+    public String INVOICE_DIRECTORY;
 
 
     public InvoiceResponse createInvoice(InvoiceRequest invoiceRequest) throws IOException {
@@ -49,7 +51,7 @@ public class InvoiceService {
             String htmlTemplate;
             InvoiceData invoiceData = new InvoiceData();
 
-            Company buyerInfo = companyService.getCompanyById((long) invoiceRequest.getBuyerId());
+            Company buyerInfo = companyService.getCompanyById(invoiceRequest.getBuyerId());
 
             invoiceData = invoiceMapper.mapInvoiceRequestToInvoiceData(invoiceRequest, buyerInfo);
 
@@ -92,11 +94,11 @@ public class InvoiceService {
             // Converthtml to pdf and save to cloud storage or return the invoice id
 
             // Path: /app/invoices/{companyId}/INV-{id}.pdf
-            String directory = INVOICE_DIRECTORY + buyerInfo.getId();
+            String directory = INVOICE_DIRECTORY + invoiceData.getBuyer().getName().replace("/", "_");
             // Ensure directory exists
             Path dirPath = Paths.get(directory);
             if (!dirPath.toFile().exists()) {
-                log.info("Creating directory for invoices at path: {}", dirPath.toAbsolutePath());
+                log.info("Creating directory for quotations at path: {}", dirPath.toAbsolutePath());
                 dirPath.toFile().mkdirs();
             }
             String fileName = invoiceData.getInvoiceNo() + ".pdf";
@@ -158,14 +160,34 @@ public class InvoiceService {
 
     }
 
-    public void deleteInvoice(Long id) {
+    public void deleteInvoice(Long id) throws IOException {
+
+        Long companyId = invoiceRepository.findById(id).map(Invoice::getCompanyId)
+                .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
+        String companyName = companyService.getCompanyById(companyId).getName().replace("/", "_");
+
+
+        String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
+        //delete the directory if no other quotation files are present for the same customer, otherwise delete only the file
+        try {
+            Path dirPath = Paths.get(INVOICE_DIRECTORY + "/" + companyName);
+            if (Files.exists(dirPath)) {
+                long fileCount = Files.list(dirPath).filter(Files::isRegularFile).count();
+                if (fileCount == 1) {
+                    Files.deleteIfExists(Path.of(filePathPattern));
+                    Files.deleteIfExists(dirPath);
+                    log.info("Deleted directory: {}", dirPath.toAbsolutePath());
+                } else {
+                    Path filePath = Paths.get(filePathPattern);
+                    Files.deleteIfExists(filePath);
+                    log.info("Deleted file: {}", filePath.toAbsolutePath());
+                }
+            }
+        } catch (IOException e) {
+            log.error("Error deleting quotation file: {}", e.getMessage());
+            throw e;
+        }
         invoiceRepository.deleteById(id);
-    }
-
-    public byte[] generateInvoicePdf(Long id) {
-        var pdf = invoiceRepository.getReferenceById(id);
-
-        return null;
     }
 
     public List<InvoiceData> getAll() {

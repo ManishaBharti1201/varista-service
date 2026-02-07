@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #ffffff;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            width: 190mm;
+            /* Fixed width to prevent extra page */
+            margin: 10mm auto;
+            border: 1px solid #000;
+            background-color: white;
+            overflow: hidden;
+        }
+
+        /* Table-based layouts for PDF stability */
+        .layout-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .header-cell-left {
+            width: 40%;
+            border-right: 1px solid #000;
+            padding: 15px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .header-cell-right {
+            width: 60%;
+            padding: 15px 20px;
+            vertical-align: middle;
+        }
+
+        .logo-placeholder {
+            width: 60px;
+            height: 60px;
+            background: #f0f0f0;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #f39c12;
+            border: 2px dashed #ccc;
+
+        }
+
+        .logo-image {
+            width: 70px;
+            height: auto;
+            display: block;
+            margin: 20px auto 20px;
+        }
+
+        .company-name {
+            font-weight: bold;
+            font-size: 14px;
+            color: #000;
+        }
+
+        .slogan {
+            font-size: 12px;
+            color: #f39c12;
+            letter-spacing: 1px;
+            font-weight: bold;
+        }
+
+        .address-bar {
+            padding: 5px 10px;
+            font-size: 12px;
+            color: #2980b9;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+        }
+
+        .blue-bar {
+            background-color: #9dc3e6 !important;
+            text-align: center;
+            font-weight: bold;
+            padding: 4px;
+            border-bottom: 1px solid #000;
+            font-size: 12px;
+        }
+
+        .info-cell {
+            padding: 8px;
+            font-size: 12px;
+            border-bottom: 1px solid #000;
+            vertical-align: top;
+        }
+
+        .service-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #2980b9;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .pill {
+            background-color: #f1f7ff;
+            border: 1px solid #d1e3f8;
+            padding: 2px 8px;
+            margin: 2px;
+            display: inline-block;
+            font-size: 12px;
+            border-radius: 3px;
+        }
+
+        .solution-pill {
+            background: #ffffff;
+            border-left: 3px solid #2980b9;
+            padding: 2px 8px;
+            margin: 2px;
+            display: inline-block;
+            font-size: 12px;
+            border: 1px solid #eee;
+            border-left: 3px solid #2980b9;
+        }
+
+        table.items-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table.items-table th,
+        table.items-table td {
+            border: 1px solid #000;
+            padding: 6px;
+            font-size: 12px;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #9dc3e6 !important;
+        }
+
+        tr {
+            height: 25px;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+                .text-right {
+            text-align: right;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        .footer-section {
+            padding: 10px 15px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <table class="layout-table">
+        <tr>
+            <td class="header-cell-left">
+                <div class="logo-placeholder">
+                    <img class="logo-image" src="{{company_logo}}" alt="Logo" />
+                </div>
+                <div class="company-name">VARISTA INDUSTRIAL SOLUTIONS</div>
+                <div class="slogan">Precision | Power | Progress</div>
+
+            </td>
+            <td class="header-cell-right">
+                <span class="service-label">Suppliers of Services</span>
+                <div class="pill">Manpower Supply</div>
+                <div class="pill">Project Execution</div>
+                <div class="pill">Fabrication</div>
+
+                <div style="margin-top: 10px;">
+                    <span class="service-label">Engineering Solutions</span>
+                    <div class="solution-pill">Mechanical</div>
+                    <div class="solution-pill">Utility</div>
+                    <div class="solution-pill">P &amp; M</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="address-bar">
+        Address: 1st Floor, House No/Flat No 275, Street - Narhat, City-Punaul, District-Nawada, Bihar, Pin
+        Code-805103<br />
+        Email: varishtaengineeringsolution@gmail.com
+    </div>
+
+    <div class="blue-bar">QUOTATION</div>
+
+    <table class="layout-table">
+        <tr>
+            <td class="info-cell" style="border-right: 1px solid #000;">
+                To,<br />
+                Kind Attn: <strong>{{customer_name}}</strong><br />
+                Email: <strong>{{customer_email}}</strong>
+            </td>
+            <td class="info-cell">
+                Our Offer: <strong>{{quotationNbr}}</strong><br />
+                Date: <strong>{{createDate}}</strong><br />
+                Your Ref:
+            </td>
+        </tr>
+    </table>
+
+    <div class="blue-bar">OUR REGISTRATION</div>
+    <table class="layout-table">
+        <tr>
+            <td class="info-cell" style="width: 40%; border-right: 1px solid #000;">PAN No:</td>
+            <td class="info-cell" style="width: 60%;">GST No: <strong>10CPRPK4671P1ZA</strong></td>
+        </tr>
+    </table>
+
+    <div class="footer-section">
+        Dear Sir/Madam,<br />
+        With reference to your enquiry, please find our offer for the following.
+    </div>
+
+    <table class="items-table">
+        <thead>
+        <tr>
+            <th style="width: 30px;">Sr.</th>
+            <th>ITEM DESCRIPTION</th>
+            <th style="width: 60px;">HSN</th>
+            <th style="width: 40px;">Qty</th>
+            <th style="width: 60px;">UNIT</th>
+            <th style="width: 70px;">Rate</th>
+            <th style="width: 80px;">TOTAL</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td class="text-center">{{item_serial_number_1}}</td>
+            <td class="bold">{{item_description_1}}</td>
+            <td class="text-center">{{item_hsn_1}}</td>
+            <td class="text-center">{{item_qty_1}}</td>
+            <td class="text-center">{{item_unit_1}}</td>
+            <td class="text-center">{{item_rate_1}}</td>
+            <td class="text-center">{{item_total_1}}</td>
+        </tr>
+        <tr>
+            <td class="text-center">{{item_serial_number_2}}</td>
+            <td class="bold">{{item_description_2}}</td>
+            <td class="text-center">{{item_hsn_2}}</td>
+            <td class="text-center">{{item_qty_2}}</td>
+            <td class="text-center">{{item_unit_2}}</td>
+            <td class="text-center">{{item_rate_2}}</td>
+            <td class="text-center">{{item_total_2}}</td>
+        </tr>
+        <tr>
+            <td class="text-center">{{item_serial_number_3}}</td>
+            <td class="bold">{{item_description_3}}</td>
+            <td class="text-center">{{item_hsn_3}}</td>
+            <td class="text-center">{{item_qty_3}}</td>
+            <td class="text-center">{{item_unit_3}}</td>
+            <td class="text-center">{{item_rate_3}}</td>
+            <td class="text-center">{{item_total_3}}</td>
+        </tr>
+        <tr>
+            <td class="text-center">{{item_serial_number_4}}</td>
+            <td class="bold">{{item_description_4}}</td>
+            <td class="text-center">{{item_hsn_4}}</td>
+            <td class="text-center">{{item_qty_4}}</td>
+            <td class="text-center">{{item_unit_4}}</td>
+            <td class="text-center">{{item_rate_4}}</td>
+            <td class="text-center">{{item_total_4}}</td>
+        </tr>
+        <tr>
+            <td class="text-center">{{item_serial_number_5}}</td>
+            <td class="bold">{{item_description_5}}</td>
+            <td class="text-center">{{item_hsn_5}}</td>
+            <td class="text-center">{{item_qty_5}}</td>
+            <td class="text-center">{{item_unit_5}}</td>
+            <td class="text-center">{{item_rate_5}}</td>
+            <td class="text-center">{{item_total_5}}</td>
+        </tr>
+        <tr>
+            <td class="text-center">{{item_serial_number_6}}</td>
+            <td class="bold">{{item_description_6}}</td>
+            <td class="text-center">{{item_hsn_6}}</td>
+            <td class="text-center">{{item_qty_6}}</td>
+            <td class="text-center">{{item_unit_6}}</td>
+            <td class="text-center">{{item_rate_6}}</td>
+            <td class="text-center">{{item_total_6}}</td>
+        </tr>
+        <tr>
+            <td class="text-center">{{item_serial_number_7}}</td>
+            <td class="bold">{{item_description_7}}</td>
+            <td class="text-center">{{item_hsn_7}}</td>
+            <td class="text-center">{{item_qty_7}}</td>
+            <td class="text-center">{{item_unit_7}}</td>
+            <td class="text-center">{{item_rate_7}}</td>
+            <td class="text-center">{{item_total_7}}</td>
+        </tr>
+        <tr>
+            <td class="text-center">{{item_serial_number_8}}</td>
+            <td class="bold">{{item_description_8}}</td>
+            <td class="text-center">{{item_hsn_8}}</td>
+            <td class="text-center">{{item_qty_8}}</td>
+            <td class="text-center">{{item_unit_8}}</td>
+            <td class="text-center">{{item_rate_8}}</td>
+            <td class="text-center">{{item_total_8}}</td>
+        </tr>
+        <tr>
+            <td colspan="6" class="text-right bold">GST 18%</td>
+            <td class="text-center">{{tax_amount}}</td>
+        </tr>
+        <tr style="background-color: #9dc3e6 !important;">
+            <td class="text-right bold" colspan="6">GRAND TOTAL</td>
+            <td class="text-center bold">{{total_amt}}</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <div class="footer-section">
+        We hope you will find our offer competitive, hence waiting for your valued Purchase Order.
+    </div>
+
+    <div class="footer-section" style="border-top: 1px solid #000;">
+        <div style="color: #2980b9; font-weight: bold; margin-bottom: 5px;">TERMS AND CONDITIONS:</div>
+        • Rate provide are for 8 Hrs, OT extra as per GOMH<br />
+        • PPEs in our scope<br />
+        • Billing to be done Monthly as per Annexure attached.
+
+        <table class="layout-table" style="margin-top: 15px;">
+            <tr>
+                <td style="font-size: 11px;">Thanks for giving us a chance to serve you!</td>
+                <td style="text-align: right; font-weight: bold; font-size: 11px;">For Varista Industrial solutions
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+</body>
+
+</html>

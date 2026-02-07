@@ -37,7 +37,7 @@ import java.util.List;
 public class InvoiceController {
 
     @Value("${invoice.directory}")
-    public  String INVOICE_DIRECTORY ;
+    public String INVOICE_DIRECTORY;
 
     private final InvoiceService invoiceService;
 
@@ -79,9 +79,18 @@ public class InvoiceController {
             @Parameter(description = "ID of the invoice to delete", example = "101")
             @PathVariable Long id) {
         log.info("Request received to delete invoice ID: {}", id);
-        invoiceService.deleteInvoice(id);
-        log.info("Invoice ID: {} deleted successfully", id);
-        return ResponseEntity.noContent().build();
+        try {
+            invoiceService.deleteInvoice(id);
+            log.info("Invoice ID: {} deleted successfully", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            if (e.getMessage().contains("Invoice not found")) {
+                log.warn("Invoice ID: {} not found for deletion", id);
+                return ResponseEntity.notFound().build();
+            }
+            log.error("Error occurred while deleting invoice ID: {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping(value = "/{id}/download", produces = MediaType.APPLICATION_PDF_VALUE)

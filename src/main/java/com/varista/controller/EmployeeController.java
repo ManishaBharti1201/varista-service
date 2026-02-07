@@ -1,5 +1,6 @@
 package com.varista.controller;
 
+import com.varista.entity.Employee;
 import com.varista.model.LoginRequest;
 import com.varista.model.LoginResponse;
 import com.varista.service.EmployeeService;
@@ -22,37 +23,27 @@ public class EmployeeController {
         this.employeeService = employeeService;
     }
 
-    @GetMapping("/health")
-    @Operation(summary = "Employee service health check", description = "Checks if the authentication and employee management service is active")
-    public String healthCheck() {
-        return "Customer Service is up and running!";
+    @PostMapping("/create")
+    @Operation(summary = "Create a new employee", description = "Registers a new employee in the system")
+    @ApiResponse(responseCode = "200", description = "Employee created successfully",
+            content = @Content(schema = @Schema(implementation = LoginResponse.class)))
+    public Employee createEmployee(@RequestBody Employee employeeRequest) {
+        return employeeService.createEmployee(employeeRequest);
     }
 
-    @PostMapping("/login")
-    @Operation(
-            summary = "Employee Login",
-            description = "Authenticates a employee with credentials and returns a session token or success status",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Authentication successful",
-                            content = @Content(schema = @Schema(implementation = LoginResponse.class))),
-                    @ApiResponse(responseCode = "401", description = "Invalid employeename or password")
-            }
-    )
-    public LoginResponse login(@RequestBody LoginRequest loginRequest) {
-        return null;
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete an employee", description = "Removes an employee from the system by ID")
+    @ApiResponse(responseCode = "200", description = "Employee deleted successfully")
+    public void deleteEmployee(@PathVariable Long id) {
+        employeeService.deleteEmployee(id);
     }
 
-    @PostMapping("/register")
-    @Operation(
-            summary = "Employee Registration",
-            description = "Creates a new employee account in the system and returns initial login details",
-            responses = {
-                    @ApiResponse(responseCode = "201", description = "Employee created successfully"),
-                    @ApiResponse(responseCode = "409", description = "Employee already exists")
-            }
-    )
-    public LoginResponse register(@RequestBody LoginRequest loginRequest) {
-       // return employeeService.register(loginRequest);
-        return null;
+    @GetMapping("/all")
+    @Operation(summary = "Get all employees", description = "Retrieves a list of all employees in the system")
+    @ApiResponse(responseCode = "200", description = "List of employees retrieved successfully",
+            content = @Content(schema = @Schema(implementation = Employee.class)))
+    public java.util.List<Employee> getAllEmployees() {
+        return employeeService.getAll();
     }
+
 }

@@ -37,10 +37,11 @@ public class InvoiceMapper {
                 invoiceRequest != null && invoiceRequest.getItems() != null ? invoiceRequest.getItems().size() : 0);
 
         InvoiceData invoiceData = new InvoiceData();
+        Long id=InvoiceUtils.generate5DigitId();
 
-        String invoiceId = String.format("INV-%d-%d", buyerInfo.getId(), System.currentTimeMillis());
-        invoiceData.setInvoiceId(Long.valueOf(String.format("%d%d", buyerInfo.getId(), System.currentTimeMillis())));
-        invoiceData.setInvoiceNo(invoiceId);
+        String invoiceNo = String.format("INV-%d",  id);
+        invoiceData.setInvoiceId(id);
+        invoiceData.setInvoiceNo(invoiceNo);
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
         invoiceData.setDated(now.format(formatter));
@@ -128,7 +129,7 @@ public class InvoiceMapper {
         buyer.setPhone(invoiceRequest.getPhone());
         buyer.setAddress(invoiceRequest.getAddress());
         buyer.setGstin(invoiceRequest.getGstin());
-        buyer.setId(Long.valueOf(invoiceRequest.getId()));
+        buyer.setId(invoiceRequest.getId());
         invoiceData.setBuyer(buyer);
 
         log.debug("getBuyerInfo - mapped buyerId={}, name={}", invoiceRequest.getId(), invoiceRequest.getName());
