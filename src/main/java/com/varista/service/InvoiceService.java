@@ -13,7 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import com.varista.mapper.InvoiceMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import com.varista.utils.IndianCurrencyConverter;
 
@@ -196,4 +198,26 @@ public class InvoiceService {
         return invoiceMapper.mapToInvoiceData(invoices);
     }
 
+    public Resource downloadInvoice(String id) throws IOException {
+        try {
+            Long companyId = invoiceRepository.findById(Long.valueOf(id))
+                    .map(Invoice::getCompanyId)
+                    .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
+
+            String companyName = companyService.getCompanyById(companyId)
+                    .getName().replace("/", "_");
+
+            String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
+
+            Path filePath = Paths.get(filePathPattern);
+            if (!Files.exists(filePath)) {
+                throw new IOException("Invoice file not found on disk for ID: " + id);
+            }
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(filePath));
+            log.info("Streaming PDF for invoice ID: {} (Size: {} bytes)", id, resource.contentLength());
+            return resource;
+        } catch (IOException e) {
+            throw e;
+        }
+    }
 }

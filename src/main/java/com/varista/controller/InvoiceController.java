@@ -107,32 +107,24 @@ public class InvoiceController {
             }
     )
     public ResponseEntity<Resource> downloadInvoice(
-            @Parameter(description = "ID of the invoice (Format: ID-CLIENTID)", example = "101-500")
-            @PathVariable String id) throws IOException {
-
-        log.info("Processing download request for invoice ID: {}", id);
-
+            @Parameter(description = "ID of the invoice", example = "101500")
+            @PathVariable String id) {
         try {
-            String[] parts = id.split("-");
-            String clientId = parts[1] + "/";
-            Path path = Paths.get(INVOICE_DIRECTORY + clientId + id + ".pdf");
-
-            if (!Files.exists(path)) {
-                log.warn("Invoice PDF not found at path: {}", path.toAbsolutePath());
-                return ResponseEntity.notFound().build();
-            }
-
-            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
-            log.info("Streaming PDF for invoice ID: {} (Size: {} bytes)", id, resource.contentLength());
+            log.info("Processing download request for quotation ID: {}", id);
+            Resource response = invoiceService.downloadInvoice(id);
 
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + id + ".pdf")
                     .contentType(MediaType.APPLICATION_PDF)
-                    .body(resource);
-
-        } catch (ArrayIndexOutOfBoundsException e) {
-            log.error("Invalid ID format provided: {}. Expected format ID-CLIENTID", id);
-            return ResponseEntity.badRequest().build();
+                    .body(response);
+        } catch (IOException e) {
+            if (e.getMessage().contains("Invoice file not found")) {
+                log.warn("Invoice file not found for ID: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .build();
+            }
+            log.error(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
