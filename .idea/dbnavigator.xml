@@ -91,6 +91,8 @@ id,
 
 drop table company;
 
+DELETE FROM invoice;
+
 CREATE TABLE company (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -167,7 +169,7 @@ values
  'Sunrise Industries Pvt Ltd',
  '+91-9786543210');
 
-drop database hrmsdb;]]></console>
+drop table invoice;]]></console>
       <console name="Connection 2" type="STANDARD" schema="hrms_db" session="Main"><![CDATA[INSERT INTO company (
     address,
     created_at,
@@ -258,9 +260,7 @@ create table invoices (
     <last-used-providers />
   </component>
   <component name="DBNavigator.Project.DatabaseFileManager">
-    <open-files>
-      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="consoles/Connection 1" />
-    </open-files>
+    <open-files />
   </component>
   <component name="DBNavigator.Project.DatabasePrerequisiteManager">
     <prerequisites />

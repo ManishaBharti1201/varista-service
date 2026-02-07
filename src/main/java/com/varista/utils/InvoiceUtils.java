@@ -1,8 +1,14 @@
 package com.varista.utils;
 
+import org.springframework.core.io.ClassPathResource;
+
+import java.io.IOException;
 import java.math.BigDecimal;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalTime;
+import java.util.Base64;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class InvoiceUtils {
@@ -26,28 +32,21 @@ public class InvoiceUtils {
     }
 
     public static synchronized Long generate5DigitId() {
-        final AtomicInteger sequence = new AtomicInteger(0);
-        int lastMinute = -1;
-        LocalTime now = LocalTime.now();
-        // Calculate minutes since start of day (0 to 1439)
-        int currentMinute = now.getHour() * 60 + now.getMinute();
+        long timestamp = System.currentTimeMillis();
+        // Get the last 6 digits of the timestamp
+        return  (timestamp % 1000000);
+    }
 
-        // Reset sequence if the minute has changed
-        if (currentMinute != lastMinute) {
-            sequence.set(0);
-            lastMinute = currentMinute;
+    public static String convertImageToBase64() {
+        try {
+            ClassPathResource imageResource = new ClassPathResource("quote-logo.png");
+            String filePath = imageResource.getFile().getAbsolutePath();
+            byte[] fileContent = Files.readAllBytes(Paths.get(filePath));
+            return Base64.getEncoder().encodeToString(fileContent);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "";
         }
-
-        int seqValue = sequence.getAndIncrement();
-
-        // If sequence exceeds 9, it will roll into the 5th digit naturally,
-        // but for a strict 5-digit limit, we use modulo 10 or throw an error.
-        if (seqValue > 9) {
-            throw new RuntimeException("Rate limit exceeded: Max 10 IDs per minute.");
-        }
-
-        // Format: Minutes (padded to 4 digits) + Sequence (1 digit)
-        return Long.getLong(String.format( "%04d%d", currentMinute, seqValue));
     }
 
 
