@@ -82,7 +82,7 @@ public class InvoiceController {
         try {
             invoiceService.deleteInvoice(id);
             log.info("Invoice ID: {} deleted successfully", id);
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.ok().build();
         } catch (Exception e) {
             if (e.getMessage().contains("Invoice not found")) {
                 log.warn("Invoice ID: {} not found for deletion", id);

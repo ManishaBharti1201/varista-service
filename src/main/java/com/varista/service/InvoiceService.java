@@ -49,6 +49,7 @@ public class InvoiceService {
     public InvoiceResponse createInvoice(InvoiceRequest invoiceRequest) throws IOException {
         // Convert InvoiceRequest to InvoiceData (mocked for this example)
         InvoiceResponse invoiceResponse = new InvoiceResponse();
+        log.info("Creating invoice for buyer ID: {}", invoiceRequest.getBuyerId());
         try {
             String htmlTemplate;
             InvoiceData invoiceData = new InvoiceData();
@@ -91,7 +92,7 @@ public class InvoiceService {
                     .replace("{{ifsc_code}}", invoiceData.getBankDetails().getIfsc())
                     .replace("{{company_name}}", "Varista Industrial Solutions");
 
-            System.out.println("HTML template populated. Ready for PDF conversion.");
+            log.info("Populated HTML for invoice: {}", populatedHtml);
 
             // Converthtml to pdf and save to cloud storage or return the invoice id
 
@@ -100,7 +101,7 @@ public class InvoiceService {
             // Ensure directory exists
             Path dirPath = Paths.get(directory);
             if (!dirPath.toFile().exists()) {
-                log.info("Creating directory for quotations at path: {}", dirPath.toAbsolutePath());
+                log.info("Creating directory for invoice at path: {}", dirPath.toAbsolutePath());
                 dirPath.toFile().mkdirs();
             }
             String fileName = invoiceData.getInvoiceNo() + ".pdf";
@@ -121,6 +122,7 @@ public class InvoiceService {
             invoice.setInvoiceNumber(invoiceData.getInvoiceNo());
 
             invoiceRepository.save(invoice);
+            log.info("Invoice created successfully with ID: {} and saved to database", invoice.getId());
 
             return invoiceResponse;
         } catch (Exception e) {
@@ -167,7 +169,7 @@ public class InvoiceService {
         Long companyId = invoiceRepository.findById(id).map(Invoice::getCompanyId)
                 .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
         String companyName = companyService.getCompanyById(companyId).getName().replace("/", "_");
-
+log.info("Attempting to delete invoice with ID: {} for company: {}", id, companyName);
 
         String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
         //delete the directory if no other quotation files are present for the same customer, otherwise delete only the file
@@ -200,6 +202,7 @@ public class InvoiceService {
 
     public Resource downloadInvoice(String id) throws IOException {
         try {
+            log.info("Attempting to download invoice with ID: {}", id);
             Long companyId = invoiceRepository.findById(Long.valueOf(id))
                     .map(Invoice::getCompanyId)
                     .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
@@ -217,6 +220,7 @@ public class InvoiceService {
             log.info("Streaming PDF for invoice ID: {} (Size: {} bytes)", id, resource.contentLength());
             return resource;
         } catch (IOException e) {
+            log.error("Error downloading invoice file: {}", e.getMessage());
             throw e;
         }
     }

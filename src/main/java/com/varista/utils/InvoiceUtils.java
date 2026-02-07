@@ -1,8 +1,11 @@
 package com.varista.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 
 import java.nio.file.Files;
@@ -11,6 +14,7 @@ import java.time.LocalTime;
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 public class InvoiceUtils {
 
     public static String formatCurrency(BigDecimal amount) {
@@ -39,11 +43,18 @@ public class InvoiceUtils {
 
     public static String convertImageToBase64() {
         try {
+            // Use ClassPathResource to point to the file in BOOT-INF/classes
+            log.info("Attempting to load image from classpath...");
             ClassPathResource imageResource = new ClassPathResource("quote-logo.png");
-            String filePath = imageResource.getFile().getAbsolutePath();
-            byte[] fileContent = Files.readAllBytes(Paths.get(filePath));
-            return Base64.getEncoder().encodeToString(fileContent);
+
+            // Use getInputStream() instead of getFile()
+            try (InputStream inputStream = imageResource.getInputStream()) {
+                byte[] fileContent = StreamUtils.copyToByteArray(inputStream);
+                return Base64.getEncoder().encodeToString(fileContent);
+            }
         } catch (IOException e) {
+            // Log the error properly in a real application
+            log.error("Error converting image to Base64: ", e.getMessage());
             e.printStackTrace();
             return "";
         }

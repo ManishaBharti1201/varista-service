@@ -51,6 +51,7 @@ public class QuotationService {
         quotationRequest.setQuotationNumber("EST-" + InvoiceUtils.generate5DigitId());
         Quotation quotationResponse = new Quotation();
         try {
+            log.info("Creating quotation for customer: {}", quotationRequest.getCustomerName());
             String htmlTemplate;
             ClassPathResource resource = new ClassPathResource("quotation_template.html");
             try (InputStream inputStream = resource.getInputStream()) {
@@ -60,7 +61,6 @@ public class QuotationService {
             htmlTemplate = generateQuoteItemRowsHtml(quotationRequest.getItems(), htmlTemplate);
 
             //convert image into base64 and update the html template
-            ClassPathResource imageResource = new ClassPathResource("quote-logo.png");
             String logoBase64 = InvoiceUtils.convertImageToBase64();
             htmlTemplate = htmlTemplate.replace("{{company_logo}}", "data:image/png;base64," + logoBase64);
 
@@ -73,7 +73,7 @@ public class QuotationService {
                     .replace("{{tax_amount}}", String.valueOf(quotationRequest.getTaxAmount()))
                     .replace("{{total_amt}}", String.valueOf(quotationRequest.getTotalAmount()));
 
-            System.out.println("HTML template populated. Ready for PDF conversion.");
+            log.info("Populated HTML for quotation:\n{}", populatedHtml);
 
             // Path: /app/quotations/{companyId}/INV-{id}.pdf
             String directory = QUOTATION_DIRECTORY + quotationRequest.getCustomerName().replace("/", "_");
@@ -97,6 +97,7 @@ public class QuotationService {
 
             // save the invoiceinfo to database if needed
             quotationRepository.save(quotationResponse);
+            log.info("Quotation created successfully with ID: {} and saved to database", quotationResponse.getId());
 
             return quotationResponse;
 
@@ -115,6 +116,7 @@ public class QuotationService {
         String filePathPattern = QUOTATION_DIRECTORY + "/" + getDirectoryName + "/EST-" + id + ".pdf";
         //delete the directory if no other quotation files are present for the same customer, otherwise delete only the file
         try {
+            log.info("Attempting to delete quotation file for ID: {} at path: {}", id, filePathPattern);
             Path dirPath = Paths.get(QUOTATION_DIRECTORY + "/" + getDirectoryName);
             if (Files.exists(dirPath)) {
                 long fileCount = Files.list(dirPath).filter(Files::isRegularFile).count();
@@ -177,6 +179,7 @@ public class QuotationService {
 
     public Resource downloadQuotation(long id) {
         try {
+            log.info("Attempting to download quotation for ID: {}", id);
             String getDirectoryName = quotationRepository.findById(id)
                     .map(Quotation::getCustomerName)
                     .orElse("unknown_customer")
