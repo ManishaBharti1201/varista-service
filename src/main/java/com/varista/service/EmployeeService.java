@@ -1,17 +1,14 @@
 package com.varista.service;
 
-import ch.qos.logback.classic.pattern.EpochConverter;
 import com.varista.entity.Employee;
 
-import com.varista.model.LoginRequest;
-import com.varista.model.LoginResponse;
 import com.varista.repository.EmployeeRepository;
 import com.varista.utils.InvoiceUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -28,9 +25,11 @@ public class EmployeeService {
         return employeeRepository.findAll();
     }
 
-
     public Employee createEmployee(Employee employeeInfo) {
-        employeeInfo.setId(Instant.now().getEpochSecond());
+        employeeInfo.setId(InvoiceUtils.generate5DigitId());
+        if (employeeInfo.getJoiningDate() == null) {
+            employeeInfo.setJoiningDate(LocalDate.now());
+        }
         Employee savedEmployee = employeeRepository.save(employeeInfo);
         return savedEmployee;
     }

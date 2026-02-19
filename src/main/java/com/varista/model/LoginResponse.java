@@ -10,7 +10,7 @@ public class LoginResponse {
     private Long tokenExpiryTs;
     private String role;
     private String userId;
-    private String companyId;
+    private Long companyId;
     private String companyName;
     private Long login_ts;
     private String refreshToken;
@@ -18,4 +18,9 @@ public class LoginResponse {
     private String userName;
     private String status;
     private String message;
+    private String email;
+    private String phone;
+    private String firstName;
+    private String lastName;
+    private String avatar;
 }

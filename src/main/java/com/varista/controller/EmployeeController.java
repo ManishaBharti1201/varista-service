@@ -26,7 +26,7 @@ public class EmployeeController {
     @PostMapping("/create")
     @Operation(summary = "Create a new employee", description = "Registers a new employee in the system")
     @ApiResponse(responseCode = "200", description = "Employee created successfully",
-            content = @Content(schema = @Schema(implementation = LoginResponse.class)))
+            content = @Content(schema = @Schema(implementation = Employee.class)))
     public Employee createEmployee(@RequestBody Employee employeeRequest) {
         return employeeService.createEmployee(employeeRequest);
     }

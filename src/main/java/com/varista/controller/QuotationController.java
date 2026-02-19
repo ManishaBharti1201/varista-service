@@ -60,7 +60,7 @@ public class QuotationController {
             @ApiResponse(responseCode = "500", description = "Internal server error during creation")
     })
     public ResponseEntity<Quotation> createQuotation(@RequestBody QuotationRequest commands) {
-        log.info("Request received to create quotation for customer: {}", commands.getId());
+        log.info("Request received to create quotation for customer: {}", commands.getCustomerName());
         try {
             Quotation response = quotationService.createQuotation(commands);
             log.info("Quotation created successfully with ID: {}", response.getId());

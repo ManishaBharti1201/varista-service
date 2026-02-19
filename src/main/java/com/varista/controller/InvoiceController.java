@@ -1,6 +1,5 @@
 package com.varista.controller;
 
-import com.varista.constant.Constant;
 import com.varista.model.InvoiceData;
 import com.varista.model.InvoiceRequest;
 import com.varista.model.InvoiceResponse;
@@ -15,7 +14,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -24,9 +22,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 @Slf4j
@@ -155,5 +150,27 @@ public class InvoiceController {
 
         log.info("Successfully retrieved {} invoices", invoices.size());
         return ResponseEntity.ok(invoices);
+    }
+
+
+    @GetMapping("/{id}/mark-as-paid")
+    @Operation(summary = "Update an existing invoice", description = "Updates the details of an existing invoice based on the provided ID and request body")
+
+    public ResponseEntity<InvoiceResponse> markAsPaid(
+            @Parameter(description = "ID of the invoice to update", example = "101")
+            @PathVariable Long id) {
+        log.info("Request received to update invoice ID: {}", id);
+        try {
+            InvoiceResponse response = invoiceService.markAsPaid(id);
+            log.info("Invoice ID: {} updated successfully", id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            if (e.getMessage().contains("Invoice not found")) {
+                log.warn("Invoice ID: {} not found for update", id);
+                return ResponseEntity.notFound().build();
+            }
+            log.error("Error occurred while updating invoice ID: {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }

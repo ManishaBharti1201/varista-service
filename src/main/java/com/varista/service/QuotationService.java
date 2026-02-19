@@ -48,7 +48,7 @@ public class QuotationService {
     public Quotation createQuotation(QuotationRequest quotationRequest) throws IOException {
 
         quotationRequest.setId(InvoiceUtils.generate5DigitId());
-        quotationRequest.setQuotationNumber("EST-" + InvoiceUtils.generate5DigitId());
+        String quotationId = "EST-" + InvoiceUtils.generate5DigitId();
         Quotation quotationResponse = new Quotation();
         try {
             log.info("Creating quotation for customer: {}", quotationRequest.getCustomerName());
@@ -66,7 +66,7 @@ public class QuotationService {
 
             // Populate the HTML template (simplified example)
             String populatedHtml = htmlTemplate
-                    .replace("{{quotationNbr}}", quotationRequest.getQuotationNumber())
+                    .replace("{{quotationNbr}}", quotationId)
                     .replace("{{createDate}}", quotationRequest.getCreationDate().toString())
                     .replace("{{customer_name}}", quotationRequest.getCustomerName().replace("&", "&amp;"))
                     .replace("{{customer_email}}", quotationRequest.getCustomerEmail())
@@ -83,13 +83,13 @@ public class QuotationService {
                 log.info("Creating directory for quotations at path: {}", dirPath.toAbsolutePath());
                 dirPath.toFile().mkdirs();
             }
-            String fileName = quotationRequest.getQuotationNumber() + ".pdf";
+            String fileName = quotationId + ".pdf";
             String fullPath = directory + "/" + fileName;
 
             PdfGenerator.generatePdfFromHtml(populatedHtml, fullPath);
 
             quotationResponse.setId(quotationRequest.getId());
-            quotationResponse.setQuotationNumber(quotationRequest.getQuotationNumber());
+            quotationResponse.setQuotationNumber(quotationId);
             quotationResponse.setCreationDate(quotationRequest.getCreationDate());
             quotationResponse.setTotalAmount(quotationRequest.getTotalAmount());
             quotationResponse.setCustomerName(quotationRequest.getCustomerName());

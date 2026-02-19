@@ -1,9 +1,7 @@
 package com.varista.service;
 
-import com.varista.constant.Constant;
 import com.varista.entity.Company;
 import com.varista.entity.Invoice;
-import com.varista.entity.Quotation;
 import com.varista.model.InvoiceData;
 import com.varista.model.InvoiceRequest;
 import com.varista.model.InvoiceResponse;
@@ -49,7 +47,7 @@ public class InvoiceService {
     public InvoiceResponse createInvoice(InvoiceRequest invoiceRequest) throws IOException {
         // Convert InvoiceRequest to InvoiceData (mocked for this example)
         InvoiceResponse invoiceResponse = new InvoiceResponse();
-        log.info("Creating invoice for buyer ID: {}", invoiceRequest.getBuyerId());
+        log.info("Creating invoice for buyer ID: {}", invoiceRequest);
         try {
             String htmlTemplate;
             InvoiceData invoiceData = new InvoiceData();
@@ -169,7 +167,7 @@ public class InvoiceService {
         Long companyId = invoiceRepository.findById(id).map(Invoice::getCompanyId)
                 .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
         String companyName = companyService.getCompanyById(companyId).getName().replace("/", "_");
-log.info("Attempting to delete invoice with ID: {} for company: {}", id, companyName);
+        log.info("Attempting to delete invoice with ID: {} for company: {}", id, companyName);
 
         String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
         //delete the directory if no other quotation files are present for the same customer, otherwise delete only the file
@@ -223,5 +221,29 @@ log.info("Attempting to delete invoice with ID: {} for company: {}", id, company
             log.error("Error downloading invoice file: {}", e.getMessage());
             throw e;
         }
+    }
+
+    public InvoiceResponse markAsPaid(Long id) {
+        // Implement the logic to update the invoice based on the provided ID and request data
+        // This may involve fetching the existing invoice, updating its details, regenerating the PDF, and saving changes to the database
+        // For now, we will return a placeholder response
+        InvoiceResponse invoiceResponse = new InvoiceResponse();
+        Invoice existingInvoice = invoiceRepository.findById(id)
+                .map(invoice -> {
+                    log.info("Marking invoice with ID: {} as Paid", id);
+                    invoice.setStatus("Paid");
+                    // Update other fields as necessary
+                    return invoiceRepository.save(invoice);
+                })
+                .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
+
+        invoiceResponse.setInvoiceId(existingInvoice.getId());
+        invoiceResponse.setInvoiceNumber(existingInvoice.getInvoiceNumber());
+        invoiceResponse.setCreatedAt(existingInvoice.getCreatedAt().toString());
+        invoiceResponse.setAmount(existingInvoice.getTotalAmount().toString());
+        invoiceResponse.setStatus("Paid");
+        invoiceResponse.setMessage("Invoice marked as Paid successfully");
+
+        return invoiceResponse;
     }
 }

@@ -11,6 +11,9 @@
   </component>
   <component name="DBNavigator.Project.DatabaseAssistantManager">
     <assistants>
+      <assistant-state connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
+        <tools />
+      </assistant-state>
       <assistant-state connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" assistant-type="PUBLIC" default-profile-name="" selected-chat-id="50A0E52CB21247BBAD8870DDF1769658" availability="AVAILABLE" acknowledgement="ENGAGED" selected="true">
         <chats>
           <chat id="50A0E52CB21247BBAD8870DDF1769658" title="" session-signature="" timestamp="1769712078042">
@@ -29,13 +32,10 @@
           </approvals>
         </tools>
       </assistant-state>
-      <assistant-state connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
+      <assistant-state connection-id="a70972ba-089f-40d5-ba2e-2306e6646cae" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
         <tools />
       </assistant-state>
       <assistant-state connection-id="a70972ba-089f-40d5-ba2e-2306e6646cae" assistant-type="PUBLIC" default-profile-name="" selected-chat-id="" availability="AVAILABLE" acknowledgement="NONE" selected="true">
-        <tools />
-      </assistant-state>
-      <assistant-state connection-id="a70972ba-089f-40d5-ba2e-2306e6646cae" assistant-type="SELECT_AI" default-profile-name="" selected-chat-id="" availability="UNAVAILABLE" acknowledgement="NONE">
         <tools />
       </assistant-state>
     </assistants>
@@ -91,7 +91,7 @@ id,
 
 drop table company;
 
-DELETE FROM invoice;
+DELETE FROM quotation  where id != 0;
 
 CREATE TABLE company (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -103,7 +103,7 @@ CREATE TABLE company (
     created_at DATETIME(6) -- Maps to LocalDateTime
 );
 
-select * from company ;
+select * from invoice; where id=239520;
 
 delete from company where id > 207 ;
 
@@ -220,7 +220,28 @@ CREATE TABLE company (
     created_at DATETIME(6) -- Maps to LocalDateTime
 );
 
-select * from invoice;]]></console>
+select * from `user` ;
+
+INSERT INTO `user` (
+    `id`,
+    `create_date`,
+    `email`,
+    `first_name`,
+    `last_name`,
+    `last_update_date`,
+    `org_id`,
+    `org_name`,
+    `password`,
+    `phone`,
+    `role`)
+VALUES 
+    (1, CURRENT_TIMESTAMP, 'alice.smith@example.com', 'Alice', 'Smith', CURRENT_TIMESTAMP, 101, 'TechCorp', 'hash_pass_1', '555-0101', 'ADMIN'),
+    (2, CURRENT_TIMESTAMP, 'bob.jones@example.com', 'Bob', 'Jones', CURRENT_TIMESTAMP, 101, 'TechCorp', 'hash_pass_2', '555-0102', 'USER'),
+    (3, CURRENT_TIMESTAMP, 'charlie.brown@example.com', 'Charlie', 'Brown', CURRENT_TIMESTAMP, 102, 'DesignHub', 'hash_pass_3', '555-0103', 'USER'),
+    (4, CURRENT_TIMESTAMP, 'dana.white@example.com', 'Dana', 'White', CURRENT_TIMESTAMP, 102, 'DesignHub', 'hash_pass_4', '555-0104', 'MANAGER'),
+    (5, CURRENT_TIMESTAMP, 'evan.davis@example.com', 'Evan', 'Davis', CURRENT_TIMESTAMP, 103, 'DataFlow', 'hash_pass_5', '555-0105', 'USER');
+    
+update `user` set `password` = 'password' where email='alice.smith@example.com']]></console>
       <console name="TableSetup" type="STANDARD" schema="varistaDB" session="Main"><![CDATA[create TABLE users (
     id serial primary key,
     username varchar(50) unique not null,
@@ -260,7 +281,9 @@ create table invoices (
     <last-used-providers />
   </component>
   <component name="DBNavigator.Project.DatabaseFileManager">
-    <open-files />
+    <open-files>
+      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="consoles/Connection 2" />
+    </open-files>
   </component>
   <component name="DBNavigator.Project.DatabasePrerequisiteManager">
     <prerequisites />
@@ -270,10 +293,12 @@ create table invoices (
   </component>
   <component name="DBNavigator.Project.DatasetFilterManager">
     <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="hrms_db.company" active-filter-id="EMPTY_FILTER" />
+    <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="hrms_db.quotation" active-filter-id="EMPTY_FILTER" />
     <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="hrms_db.invoice" active-filter-id="EMPTY_FILTER" />
     <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="varistaDB.invoice" active-filter-id="EMPTY_FILTER" />
     <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="varistaDB.companies" active-filter-id="EMPTY_FILTER" />
     <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="varistaDB.company" active-filter-id="EMPTY_FILTER" />
+    <filter-actions connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" dataset="hrms_db.employee" active-filter-id="EMPTY_FILTER" />
   </component>
   <component name="DBNavigator.Project.ExecutionManager">
     <retain-sticky-names value="false" />

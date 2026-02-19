@@ -178,6 +178,7 @@ public class InvoiceMapper {
                             : null);
                     dto.setInvoiceNo(invoice.getInvoiceNumber());
                     dto.setInvoiceId(invoice.getId());
+                    dto.setStatus(invoice.getStatus());
 
                     log.debug("mapToInvoiceData - mapped invoiceId={}, companyId={}, totalAmount={}",
                             invoice.getId(), invoice.getCompanyId(), invoice.getTotalAmount());

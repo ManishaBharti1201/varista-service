@@ -12,7 +12,6 @@ import java.util.List;
 public class QuotationRequest {
     @Id
     private Long id;
-    private String quotationNumber;
     private String customerName;
     private String customerEmail;
     private List<InvoiceData.Item> items;
