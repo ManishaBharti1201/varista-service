@@ -16,7 +16,7 @@ public class Invoice {
     @Id
     private Long id;
     private Long companyId;
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt =  LocalDateTime.now();
     private String invoiceNumber;
     private String status;
     private BigDecimal totalAmount;

@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -17,5 +18,5 @@ public class Quotation {
     private String customerName;
     private String customerEmail;
     private Double totalAmount;
-    private LocalDate creationDate;
+    private LocalDateTime creationDate =  LocalDateTime.now();
 }

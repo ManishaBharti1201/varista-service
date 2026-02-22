@@ -21,6 +21,6 @@ public class Company {
     private String gstin;
     private String email;
     private String phone;        // changed from BigDecimal → String
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt ;
 
 }

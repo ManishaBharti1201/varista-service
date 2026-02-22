@@ -90,7 +90,6 @@ public class QuotationService {
 
             quotationResponse.setId(quotationRequest.getId());
             quotationResponse.setQuotationNumber(quotationId);
-            quotationResponse.setCreationDate(quotationRequest.getCreationDate());
             quotationResponse.setTotalAmount(quotationRequest.getTotalAmount());
             quotationResponse.setCustomerName(quotationRequest.getCustomerName());
             quotationResponse.setCustomerEmail(quotationRequest.getCustomerEmail());

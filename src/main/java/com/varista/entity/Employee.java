@@ -1,8 +1,10 @@
 package com.varista.entity;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import lombok.Data;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDate;
 
@@ -17,5 +19,9 @@ public class Employee {
     private String role;
     private String adhaar;
     private LocalDate joiningDate;
+    @ColumnDefault("false")
+    private Boolean timesheetPresent;
+    @ColumnDefault("false")
+    private Boolean salaryPresent;
     private LocalDate createdAt;
 }
