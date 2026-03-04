@@ -39,3 +39,4 @@ build/
 /invoice/
 /quotation/
 /src/main/resources/quotation.html
+/.idea/
