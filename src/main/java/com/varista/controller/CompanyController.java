@@ -47,5 +47,13 @@ public class CompanyController {
         return companyResponse; // Placeholder return statement
     }
 
+    @PutMapping("/updatePayment")
+    public Company updatePayment(@RequestBody CompanyInfo paymentRequest){
+        log.info("Received request for payment update {}", paymentRequest);
+        Company paymentResponse = companyService.updatePayment(paymentRequest);
+        return paymentResponse;
+    }
+
+
 
 }

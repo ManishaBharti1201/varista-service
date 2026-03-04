@@ -9,10 +9,17 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -48,7 +55,7 @@ public class AttendenceController {
             long count = attendenceService.uploadAttendence(file);
             return ResponseEntity.ok().body("Timesheet Uploaded for " + count + " employee successfully");
         } catch (Exception e) {
-            log.error("Timesheet upload failed: {}", e.getMessage());
+            log.error("Timesheet upload failed: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
         }
     }
@@ -70,5 +77,38 @@ public class AttendenceController {
 
         var result = attendenceService.getEmployeeTimesheet(employeeId);
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/register/inspect-template")
+    public ResponseEntity<?> inspectTemplate() {
+        try {
+            Map<String, Object> info = attendenceService.inspectTemplateHeaders();
+            return ResponseEntity.ok(info);
+        } catch (Exception e) {
+            log.error("Failed to inspect template: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Error inspecting template: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/register/create")
+    public ResponseEntity<?> createSheet(@RequestParam String month) {
+        try {
+            ByteArrayInputStream in = attendenceService.createAttendanceSheet(month);
+            if (in == null) {
+                log.error("Attendance sheet service returned null InputStream for month={}", month);
+                return ResponseEntity.internalServerError().body("Failed to generate attendance sheet");
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Content-Disposition", "attachment; filename=Syncra_Payroll_Report.xlsx");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(new InputStreamResource(in));
+        } catch (Exception e) {
+            log.error("Failed to create payroll excel: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body("Error generating payroll excel: " + e.getMessage());
+        }
     }
 }

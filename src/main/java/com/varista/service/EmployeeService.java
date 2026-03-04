@@ -26,15 +26,17 @@ public class EmployeeService {
     }
 
     public Employee createEmployee(Employee employeeInfo) {
-        employeeInfo.setId(InvoiceUtils.generate5DigitId());
+        if (employeeInfo.getId() == 0)
+            employeeInfo.setId(InvoiceUtils.generate5DigitId());
         if (employeeInfo.getJoiningDate() == null) {
             employeeInfo.setJoiningDate(LocalDate.now());
         }
-        Employee savedEmployee = employeeRepository.save(employeeInfo);
-        return savedEmployee;
+        return employeeRepository.save(employeeInfo);
     }
 
     public void deleteEmployee(Long id) {
         employeeRepository.deleteById(id);
     }
+
+
 }

@@ -2,18 +2,29 @@ package com.varista.service;
 
 import com.varista.entity.Attendance;
 import com.varista.entity.Employee;
+import com.varista.model.MusterSheetInfo;
 import com.varista.model.TimesheetResponse;
 import com.varista.repository.AttendanceRepository;
 import com.varista.repository.EmployeeRepository;
+import com.varista.utils.ExcelUtils;
+import com.varista.utils.ServiceUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Cell;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
@@ -29,6 +40,15 @@ public class AttendenceService {
     @Autowired
     private EmployeeRepository employeeRepository;
 
+    @Autowired
+    private ExcelUtils excelUtils;
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @Autowired
+    MusterDataCalculator musterDataCalculator;
+
     @Transactional(rollbackFor = Exception.class)
     public long uploadAttendence(MultipartFile file) throws Exception {
         List<Attendance> attendanceList = new ArrayList<>();
@@ -36,9 +56,7 @@ public class AttendenceService {
         // 1. Use WorkbookFactory to support both .xls (OLE2) and .xlsx (OOXML)
         try (InputStream is = file.getInputStream();
              Workbook workbook = WorkbookFactory.create(is)) {
-
             Sheet sheet = workbook.getSheetAt(0);
-
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
@@ -48,29 +66,26 @@ public class AttendenceService {
                 // Fixed column mapping based on your previous descriptions
                 // Column 0: Date, 1: Employee ID, 2: Name, 3: In, 4: Out, 5: Hours, 6: Status
                 record.setAttendDate(convertExcelDate(row.getCell(7)));
-                record.setEmployeeId(getCellValue(row.getCell(4)));
-                record.setEmployeeName(getCellValue(row.getCell(5)));
-                record.setInTime(getCellValue(row.getCell(9)));
-                record.setOutTime(getCellValue(row.getCell(10)));
-                record.setTotalHours(getCellValue(row.getCell(12)));
-                record.setStatus(getCellValue(row.getCell(8)));
+                record.setEmployeeId(excelUtils.getCellValue(row.getCell(4)));
+                record.setEmployeeName(excelUtils.getCellValue(row.getCell(5)));
+                record.setInTime(excelUtils.getCellValue(row.getCell(9)));
+                record.setOutTime(excelUtils.getCellValue(row.getCell(10)));
+                record.setTotalHours(excelUtils.getCellValue(row.getCell(12)));
+                record.setStatus(excelUtils.getCellValue(row.getCell(8)));
+                record.setTimesheetMonth(record.getAttendDate().getMonth().toString());
 
                 // Set default company or extra fields if needed
-                record.setCompany(getCellValue(row.getCell(6)));
+                record.setCompany(excelUtils.getCellValue(row.getCell(6)));
 
                 attendanceList.add(record);
             }
         }
-
         // 2. Link User IDs to the Attendance records BEFORE saving
         linkUserIdsToAttendance(attendanceList);
-
         // 3. Save Attendance Records
-        var result = attendanceRepository.saveAll(attendanceList);
-
+        attendanceRepository.saveAll(attendanceList);
         // 4. Update the User table (TimesheetPresent flag)
         long employeeCount = updateUserTimesheetStatus(attendanceList);
-
         return employeeCount;
     }
 
@@ -109,7 +124,7 @@ public class AttendenceService {
     public void linkUserIdsToAttendance(List<Attendance> attendanceList) {
         Set<List<String>> uniqueNames = new HashSet<>();
         for (Attendance a : attendanceList) {
-            String[] parts = splitName(a.getEmployeeName());
+            String[] parts = ServiceUtils.splitName(a.getEmployeeName());
             uniqueNames.add(Arrays.asList(parts[0], parts[1]));
         }
 
@@ -118,7 +133,7 @@ public class AttendenceService {
                 .map(list -> (list.get(0) + "|" + list.get(1)).toLowerCase())
                 .collect(Collectors.toList());
 
-// Single DB call using string keys
+        // Single DB call using string keys
         List<Employee> foundEmployee = employeeRepository.findBySpecificNameKeys(nameKeys);
 
         Map<String, Long> nameToIdMap = foundEmployee.stream()
@@ -129,7 +144,7 @@ public class AttendenceService {
                 ));
 
         attendanceList.forEach(attendance -> {
-            String[] parts = splitName(attendance.getEmployeeName());
+            String[] parts = ServiceUtils.splitName(attendance.getEmployeeName());
             String lookupKey = (parts[0] + "|" + parts[1]).toLowerCase();
 
             Long userId = nameToIdMap.get(lookupKey);
@@ -141,26 +156,6 @@ public class AttendenceService {
         });
     }
 
-    // Helper to handle the "First word = First Name, Rest = Last Name" logic
-    private String[] splitName(String fullName) {
-        if (fullName == null || fullName.trim().isEmpty()) return new String[]{"", ""};
-        String[] nameArr = fullName.trim().split(" ", 2);
-        String first = nameArr[0];
-        String last = (nameArr.length > 1) ? nameArr[1] : "";
-        return new String[]{first, last};
-    }
-
-    // Helper to handle Excel Cell types (String vs Numeric/Date)
-    private String getCellValue(Cell cell) {
-        if (cell == null) return "";
-        return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue().trim();
-            case NUMERIC -> String.valueOf((int) cell.getNumericCellValue());
-            default -> "";
-        };
-    }
-
-    // Helper to handle Excel Date formats
     private LocalDate convertExcelDate(Cell cell) {
         if (cell == null) return null;
 
@@ -180,7 +175,7 @@ public class AttendenceService {
 
         List<Attendance> timesheetList = attendanceRepository.findByMasterEmployeeId(employeeId);
 
-// Filter for status matching "AB" (case-sensitive) and count them
+        // Filter for status matching "AB" (case-sensitive) and count them
         long leavesCount = timesheetList.stream()
                 .filter(attendance -> "AB".equalsIgnoreCase(attendance.getStatus()))
                 .count();
@@ -209,7 +204,6 @@ public class AttendenceService {
 
     private String getWeeklyOffDays(List<Attendance> timesheetList) {
 
-
         return timesheetList.stream()
                 // 1. Filter for status matching "O" (Weekly Off)
                 .filter(attendance -> "O".equalsIgnoreCase(attendance.getStatus()))
@@ -228,4 +222,32 @@ public class AttendenceService {
                 .collect(Collectors.joining(", "));
 
     }
+
+    public ByteArrayInputStream createAttendanceSheet(String month) throws IOException {
+        List<MusterSheetInfo> musterSheetInfos = new ArrayList<>();
+
+        try {
+            List<Attendance> attendanceList = attendanceRepository.findByMonth(month);
+
+            musterDataCalculator.calculateMusterSheetData(attendanceList, musterSheetInfos);
+
+            log.info("createAttendanceSheet: calculated musterSheetInfos size={}", musterSheetInfos.size());
+            if (!musterSheetInfos.isEmpty()) {
+                var s = musterSheetInfos.get(0);
+                log.info("Sample muster info: slNo={}, name={}, calSize={}", s.getSlNo(), s.getEmployeeName(), (s.getCalender() == null ? 0 : s.getCalender().size()));
+            }
+
+            YearMonth yearMonth = YearMonth.from(attendanceList.get(0).getAttendDate());
+
+            return excelUtils.generateAttendanceSheet(musterSheetInfos, yearMonth);
+        } catch (Exception e) {
+            log.error("Failed to create attendance sheet: {}", e.getMessage(), e);
+            throw new IOException("Failed to create attendance sheet", e);
+        }
+    }
+
+    public Map<String, Object> inspectTemplateHeaders() throws IOException {
+        return excelUtils.inspectTemplateHeaders();
+    }
+
 }

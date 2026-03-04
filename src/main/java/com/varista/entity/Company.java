@@ -22,5 +22,6 @@ public class Company {
     private String email;
     private String phone;        // changed from BigDecimal → String
     private LocalDateTime createdAt ;
+    private BigDecimal ledgerBalance;
 
 }

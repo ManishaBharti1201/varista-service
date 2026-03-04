@@ -16,6 +16,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import com.varista.utils.IndianCurrencyConverter;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -245,5 +247,38 @@ public class InvoiceService {
         invoiceResponse.setMessage("Invoice marked as Paid successfully");
 
         return invoiceResponse;
+    }
+
+    public InvoiceResponse replaceInvoice(Long id, MultipartFile file) {
+        try {
+            // 1. Fetch Invoice metadata
+            Invoice invoice = invoiceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
+
+            String companyName = companyService.getCompanyById(invoice.getCompanyId())
+                    .getName().replaceAll("[\\\\/:*?\"<>|]", "_"); // Robust filename sanitization
+
+            // 2. Define Pathing
+            Path directoryPath = Paths.get(INVOICE_DIRECTORY, companyName);
+            Path filePath = directoryPath.resolve("INV-" + id + ".pdf");
+
+            // 3. Ensure directory exists
+            if (!Files.exists(directoryPath)) {
+                Files.createDirectories(directoryPath);
+            }
+
+            // 4. Atomic-style Replacement:
+            // We use REPLACE_EXISTING. This is more efficient than manual delete + write
+            // because the OS handles the pointer swap/overwrite more cleanly.
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            // 5. Update metadata if necessary and return response
+            return new InvoiceResponse();
+
+        } catch (IOException e) {
+            throw new RuntimeException(" File system error: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to replace invoice: " + e.getMessage(), e);
+        }
     }
 }

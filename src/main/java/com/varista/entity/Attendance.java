@@ -19,6 +19,7 @@ public class Attendance {
     private String employeeName;
     private String company;
     private LocalDate attendDate;
+    private String timesheetMonth;
     private String inTime;
     private String outTime;
     private String totalHours;

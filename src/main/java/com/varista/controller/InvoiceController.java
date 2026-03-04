@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
@@ -173,4 +174,29 @@ public class InvoiceController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+
+    @PostMapping(value= "/{id}/replace", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> replaceInvoice(
+            @Parameter(description = "ID of the invoice to update", example = "101")
+            @PathVariable Long id,
+            @RequestParam("filename") MultipartFile filename) {
+        if (filename.isEmpty()) {
+            return ResponseEntity.badRequest().body("Please upload a valid invoice file.");
+        }
+        try {
+            InvoiceResponse response = invoiceService.replaceInvoice(id,filename);
+            log.info("Invoice ID: {} uploaded successfully", id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            if (e.getMessage().contains("Invoice not found")) {
+                log.warn("Invoice ID: {} not found for update", id);
+                return ResponseEntity.notFound().build();
+            }
+            log.error("Error occurred while updating invoice ID: {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+
 }

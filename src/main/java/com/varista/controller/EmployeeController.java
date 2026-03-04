@@ -26,7 +26,7 @@ public class EmployeeController {
         this.employeeService = employeeService;
     }
 
-    @PostMapping("/create")
+    @PostMapping("/upsert")
     @Operation(summary = "Create a new employee", description = "Registers a new employee and persists their details in the database.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Employee created successfully",

@@ -13,4 +13,5 @@ public class CompanyInfo {
     private String gstin;
     private String email;
     private String phone;
+    private BigDecimal ledgerBalance;
 }

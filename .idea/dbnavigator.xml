@@ -169,7 +169,30 @@ values
  'Sunrise Industries Pvt Ltd',
  '+91-9786543210');
 
-drop table invoice;]]></console>
+drop table invoice;
+
+INSERT INTO `employee` (
+    `id`, `adhaar`, `created_at`, `dob`, `eip`, `email`, `esic`, 
+    `father_name`, `first_name`, `gender`, `joining_date`, `last_name`, 
+    `phone`, `position`, `role`, `salary_present`, `timesheet_present`, `uan`
+) VALUES
+-- 1. VIJAY SAHU
+(1270523, '668659972003', NOW(), '2001-01-01', '50398096', 'vijay_1270523@example.com', '6113277475', 'HARIOM', 'VIJAY', 'MALE', '2025-12-16', 'SAHU', '9920568329', 'Welder (SK)', 'WORKER', 1, 1, '101679392108'),
+
+-- 2. RAM KUMAR
+(3233915, '690783849641', NOW(), '2004-03-09', '100425244955', 'ram_3233915@example.com', '3417997950', 'AYODHYA CHAUHAN', 'RAM', 'MALE', '2025-12-16', 'KUMAR', '9921478338', 'Supervisor (SK)', 'WORKER', 1, 1, '102235624924'),
+
+-- 3. Rohit Vishwakarma
+(2980256, '621584005209', NOW(), '1991-01-01', '103424207342', 'rohit_2980256@example.com', '3417482237', 'RAM ADHAR', 'Rohit', 'MALE', '2025-12-16', 'Vishwakarma', '9308902522', 'Welder (SK)', 'WORKER', 1, 1, '101212654335'),
+
+-- 4. BIKASH KUMAR SINGH
+(4454223, '913366880513', NOW(), '1996-01-01', '2634723', 'bikash_4454223@example.com', '3418170810', 'BABAN SINGH', 'BIKASH', 'MALE', '2025-12-20', 'KUMAR SINGH', '9227836095', 'Welder (SK)', 'WORKER', 1, 1, '101151792159'),
+
+-- 5. BRIJKISHOR YADAV
+(5469416, '737469683389', NOW(), '1992-05-01', '100522079278', 'brijkishor_5469416@example.com', '1327480527', 'CHHATHU YADAV', 'BRIJKISHOR', 'MALE', '2025-12-22', 'YADAV', '9414995539', 'Tag Welder (SSK)', 'WORKER', 1, 1, '101892561805'),
+
+-- 6. ANKIT KUMAR GIRI
+(5928517, '467928491009', NOW(), '2002-01-01', '100522079261', 'ankit_5928517@example.com', '3418174867', 'ANIL GIRI', 'ANKIT', 'MALE', '2025-12-22', 'KUMAR GIRI', '9914372685', 'Tag Welder (SSK)', 'WORKER', 1, 1, '101892562113');]]></console>
       <console name="Connection 2" type="STANDARD" schema="hrms_db" session="Main"><![CDATA[INSERT INTO company (
     address,
     created_at,
@@ -259,7 +282,7 @@ INSERT INTO `user` (
 VALUES 
     (1, CURRENT_TIMESTAMP, 'mahesh.chandra.sathee@example.com', 'MANESH', 'RAMCHANDRA SATHE', CURRENT_TIMESTAMP, 101, 'TechCorp', 'hash_pass_1', '555-0101', 'ADMIN')
 
-update  employee set  =0;
+update  employee set attendancePresent =0;
 
 delete  from attendance;
     
@@ -317,11 +340,10 @@ CREATE TABLE attendence (
   </component>
   <component name="DBNavigator.Project.DatabaseFileManager">
     <open-files>
+      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="consoles/Connection 1" />
       <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="schemas/hrms_db/tables/employee" />
-      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="consoles/Connection 2" />
-      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="schemas/hrms_db/tables/attendance_seq" />
-      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="schemas/hrms_db/tables/user" />
       <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="schemas/hrms_db/tables/attendance" />
+      <object connection-id="0667ff92-18c7-4a94-830b-4032ddc7a5b8" object-ref="consoles/Connection 2" />
     </open-files>
   </component>
   <component name="DBNavigator.Project.DatabasePrerequisiteManager">

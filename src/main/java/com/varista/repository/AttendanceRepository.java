@@ -15,4 +15,6 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     @Query("SELECT a FROM Attendance a WHERE a.masterEmployeeId = :masterEmployeeId")
     List<Attendance> findByMasterEmployeeId(@Param("masterEmployeeId") Long masterEmployeeId);
 
+    @Query("SELECT a FROM Attendance a WHERE a.timesheetMonth = :timesheetMonth")
+    List<Attendance> findByMonth(@Param("timesheetMonth") String month);
 }
