@@ -34,12 +34,12 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: SSH and Update VM
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy to VM via SSH
+        uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.VM_HOST }}
+          host: ${{ secrets.VM_IP }}
           username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          password: ${{ secrets.VM_PASSWORD }}
           script: |
             # 1. Navigate to deployment folder
             cd ~/varista || { echo "Directory not found"; exit 1; }
