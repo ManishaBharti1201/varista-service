@@ -1,6 +1,5 @@
 package com.varista.controller;
 
-import com.mysql.cj.x.protobuf.Mysqlx;
 import com.varista.entity.Quotation;
 import com.varista.model.QuotationRequest;
 import com.varista.model.QuotationResponse;
@@ -43,12 +42,13 @@ public class QuotationController {
 
     public QuotationController(QuotationService quotationService) {
         this.quotationService = quotationService;
+        log.info("QuotationController initialized.");
     }
 
     @GetMapping("/health")
     @Operation(summary = "Service health check", description = "Verifies if the quotation service is responsive")
     public String healthCheck() {
-        log.info("Health check initiated");
+        log.info("Received request for quotation service health check.");
         return "Quotation Service is up and running!";
     }
 
@@ -60,7 +60,7 @@ public class QuotationController {
             @ApiResponse(responseCode = "500", description = "Internal server error during creation")
     })
     public ResponseEntity<Quotation> createQuotation(@RequestBody QuotationRequest commands) {
-        log.info("Request received to create quotation for customer: {}", commands.getCustomerName());
+        log.info("Received request to create quotation for customer: {}", commands.getCustomerName());
         try {
             Quotation response = quotationService.createQuotation(commands);
             log.info("Quotation created successfully with ID: {}", response.getId());
@@ -78,7 +78,7 @@ public class QuotationController {
     public ResponseEntity<Void> deleteQuotation(@Parameter(description = "ID of the quotation to delete", example = "101")
                                                 @PathVariable Long id) {
 
-        log.info("Request received to delete quotation ID: {}", id);
+        log.info("Received request to delete quotation ID: {}", id);
         try {
             quotationService.deleteQuotation(id);
             log.info("Quotation ID: {} deleted successfully", id);
@@ -105,10 +105,9 @@ public class QuotationController {
             }
     )
     public ResponseEntity<Resource> downloadQuotation(@PathVariable Long id) throws IOException {
-
-        log.info("Processing download request for quotation ID: {}", id);
+        log.info("Received request to download quotation for ID: {}", id);
         Resource response = quotationService.downloadQuotation(id);
-
+        log.info("Quotation ID: {} downloaded successfully.", id);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + id + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF)
@@ -132,15 +131,15 @@ public class QuotationController {
             }
     )
     public ResponseEntity<List<Quotation>> listQuotations() {
-        log.info("Fetching all quotations from database");
+        log.info("Received request to fetch all quotations from database.");
         List<Quotation> quotations = quotationService.getAll();
 
         if (quotations.isEmpty()) {
-            log.info("No quotations found in the system");
+            log.info("No quotations found in the system.");
             return ResponseEntity.noContent().build();
         }
 
-        log.info("Successfully retrieved {} quotations", quotations.size());
+        log.info("Successfully retrieved {} quotations.", quotations.size());
         return ResponseEntity.ok(quotations);
     }
 }

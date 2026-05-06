@@ -39,12 +39,13 @@ public class InvoiceController {
 
     public InvoiceController(InvoiceService invoiceService) {
         this.invoiceService = invoiceService;
+        log.info("InvoiceController initialized.");
     }
 
     @GetMapping("/health")
     @Operation(summary = "Service health check", description = "Verifies if the invoice service is responsive")
     public String healthCheck() {
-        log.info("Health check initiated");
+        log.info("Received request for invoice service health check.");
         return "Invoice Service is up and running!";
     }
 
@@ -56,7 +57,7 @@ public class InvoiceController {
             @ApiResponse(responseCode = "500", description = "Internal server error during creation")
     })
     public ResponseEntity<InvoiceResponse> createInvoice(@RequestBody InvoiceRequest commands) {
-        log.info("Request received to create invoice for customer: {}", commands.getBuyerId());
+        log.info("Received request to create invoice for customer: {}", commands.getBuyerId());
         try {
             InvoiceResponse response = invoiceService.createInvoice(commands);
             log.info("Invoice created successfully with ID: {}", response.getInvoiceId());
@@ -74,7 +75,7 @@ public class InvoiceController {
     public ResponseEntity<Void> deleteInvoice(
             @Parameter(description = "ID of the invoice to delete", example = "101")
             @PathVariable Long id) {
-        log.info("Request received to delete invoice ID: {}", id);
+        log.info("Received request to delete invoice ID: {}", id);
         try {
             invoiceService.deleteInvoice(id);
             log.info("Invoice ID: {} deleted successfully", id);
@@ -105,8 +106,8 @@ public class InvoiceController {
     public ResponseEntity<Resource> downloadInvoice(
             @Parameter(description = "ID of the invoice", example = "101500")
             @PathVariable String id) {
+        log.info("Received request to download invoice for ID: {}", id);
         try {
-            log.info("Processing download request for quotation ID: {}", id);
             Resource response = invoiceService.downloadInvoice(id);
 
             return ResponseEntity.ok()
@@ -119,7 +120,7 @@ public class InvoiceController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .build();
             }
-            log.error(e.getMessage());
+            log.error("Error occurred while downloading invoice ID: {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -141,15 +142,15 @@ public class InvoiceController {
             }
     )
     public ResponseEntity<List<InvoiceData>> listInvoices() {
-        log.info("Fetching all invoices from database");
+        log.info("Received request to fetch all invoices from database.");
         List<InvoiceData> invoices = invoiceService.getAll();
 
         if (invoices.isEmpty()) {
-            log.info("No invoices found in the system");
+            log.info("No invoices found in the system.");
             return ResponseEntity.noContent().build();
         }
 
-        log.info("Successfully retrieved {} invoices", invoices.size());
+        log.info("Successfully retrieved {} invoices.", invoices.size());
         return ResponseEntity.ok(invoices);
     }
 
@@ -160,17 +161,17 @@ public class InvoiceController {
     public ResponseEntity<InvoiceResponse> markAsPaid(
             @Parameter(description = "ID of the invoice to update", example = "101")
             @PathVariable Long id) {
-        log.info("Request received to update invoice ID: {}", id);
+        log.info("Received request to mark invoice ID: {} as paid.", id);
         try {
             InvoiceResponse response = invoiceService.markAsPaid(id);
-            log.info("Invoice ID: {} updated successfully", id);
+            log.info("Invoice ID: {} marked as paid successfully.", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             if (e.getMessage().contains("Invoice not found")) {
-                log.warn("Invoice ID: {} not found for update", id);
+                log.warn("Invoice ID: {} not found for update.", id);
                 return ResponseEntity.notFound().build();
             }
-            log.error("Error occurred while updating invoice ID: {}: {}", id, e.getMessage(), e);
+            log.error("Error occurred while marking invoice ID: {} as paid: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -181,22 +182,22 @@ public class InvoiceController {
             @Parameter(description = "ID of the invoice to update", example = "101")
             @PathVariable Long id,
             @RequestParam("filename") MultipartFile filename) {
+        log.info("Received request to replace invoice file for ID: {} with filename: {}", id, filename.getOriginalFilename());
         if (filename.isEmpty()) {
+            log.warn("Attempted to replace invoice ID: {} with an empty file.", id);
             return ResponseEntity.badRequest().body("Please upload a valid invoice file.");
         }
         try {
             InvoiceResponse response = invoiceService.replaceInvoice(id,filename);
-            log.info("Invoice ID: {} uploaded successfully", id);
+            log.info("Invoice ID: {} file replaced successfully.", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             if (e.getMessage().contains("Invoice not found")) {
-                log.warn("Invoice ID: {} not found for update", id);
+                log.warn("Invoice ID: {} not found for file replacement.", id);
                 return ResponseEntity.notFound().build();
             }
-            log.error("Error occurred while updating invoice ID: {}: {}", id, e.getMessage(), e);
+            log.error("Error occurred while replacing invoice file for ID: {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
-
 }

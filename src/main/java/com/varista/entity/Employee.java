@@ -33,4 +33,5 @@ public class Employee {
     private Boolean salaryPresent;
     private LocalDate createdAt;
     private String weeklyDaysOff;
+    private String category;
 }

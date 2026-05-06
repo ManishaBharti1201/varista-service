@@ -1,6 +1,6 @@
 package com.varista.controller;
 
-import com.varista.service.AttendenceService;
+import com.varista.service.AttendanceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -10,15 +10,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -28,35 +28,46 @@ import java.util.Map;
 @Tag(name = "Timesheet Management", description = "Endpoints for uploading and retrieving employee attendance data")
 public class AttendenceController {
 
-    private final AttendenceService attendenceService;
+    private final AttendanceService attendenceService;
 
-    public AttendenceController(AttendenceService service) {
+    public AttendenceController(AttendanceService service) {
         attendenceService = service;
+        log.info("AttendenceController initialized.");
     }
 
     @Operation(
-            summary = "Upload Excel timesheet",
-            description = "Parses an Excel file, links users, and saves attendance records."
+            summary = "Upload Excel timesheet and generate Muster Sheet",
+            description = "Parses an Excel file, links users, saves attendance records, and generates a Muster Master and Wage Sheet Excel file."
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Successfully uploaded and processed"),
+            @ApiResponse(responseCode = "200", description = "Successfully uploaded, processed, and Excel generated",
+                    content = @Content(mediaType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
             @ApiResponse(responseCode = "400", description = "Invalid file or empty file provided"),
-            @ApiResponse(responseCode = "500", description = "Internal server error during processing")
+            @ApiResponse(responseCode = "500", description = "Internal server error during processing or Excel generation")
     })
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> uploadTimesheet(
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public ResponseEntity<Resource> uploadTimesheet( // Changed return type to ResponseEntity<Resource>
             @Parameter(description = "Excel file containing attendance data", required = true)
             @RequestParam("file") MultipartFile file) {
-
+        log.info("Received request to upload timesheet. File name: {}", file.getOriginalFilename());
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("Please upload a valid excel file.");
+            log.warn("Timesheet upload request received with empty file.");
+            return ResponseEntity.badRequest().body(null); // Return null body for bad request
         }
         try {
-            long count = attendenceService.uploadAttendence(file);
-            return ResponseEntity.ok().body("Timesheet Uploaded for " + count + " employee successfully");
+            ByteArrayInputStream excelStream = attendenceService.uploadAttendance(file); // Service now returns ByteArrayInputStream
+            log.info("Timesheet uploaded and Muster Excel generated successfully for file: {}", file.getOriginalFilename());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Syncra_Muster_Report_" + System.currentTimeMillis() + ".xlsx");
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(new InputStreamResource(excelStream));
         } catch (Exception e) {
-            log.error("Timesheet upload failed: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
+            log.error("Timesheet upload and Muster Excel generation failed for file {}: {}", file.getOriginalFilename(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
 
@@ -74,15 +85,18 @@ public class AttendenceController {
     public ResponseEntity<?> getTimesheet(
             @Parameter(description = "The database ID of the employee", example = "764332")
             @RequestParam long employeeId){
-
+        log.info("Received request to get timesheet for employee ID: {}", employeeId);
         var result = attendenceService.getEmployeeTimesheet(employeeId);
+        log.info("Timesheet retrieved for employee ID: {}", employeeId);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/register/inspect-template")
     public ResponseEntity<?> inspectTemplate() {
+        log.info("Received request to inspect timesheet template headers.");
         try {
             Map<String, Object> info = attendenceService.inspectTemplateHeaders();
+            log.info("Timesheet template headers inspected successfully.");
             return ResponseEntity.ok(info);
         } catch (Exception e) {
             log.error("Failed to inspect template: {}", e.getMessage(), e);
@@ -90,25 +104,9 @@ public class AttendenceController {
         }
     }
 
-    @GetMapping("/register/create")
-    public ResponseEntity<?> createSheet(@RequestParam String month) {
-        try {
-            ByteArrayInputStream in = attendenceService.createAttendanceSheet(month);
-            if (in == null) {
-                log.error("Attendance sheet service returned null InputStream for month={}", month);
-                return ResponseEntity.internalServerError().body("Failed to generate attendance sheet");
-            }
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("Content-Disposition", "attachment; filename=Syncra_Payroll_Report.xlsx");
-
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                    .body(new InputStreamResource(in));
-        } catch (Exception e) {
-            log.error("Failed to create payroll excel: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body("Error generating payroll excel: " + e.getMessage());
-        }
-    }
+    // Removed the /register/create endpoint as per the new requirement
+    // @GetMapping("/register/create")
+    // public ResponseEntity<?> createSheet(@RequestParam String month) {
+    //     ... (logic removed)
+    // }
 }

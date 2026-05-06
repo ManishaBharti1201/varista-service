@@ -1,9 +1,12 @@
 package com.varista.utils;
 
-import com.varista.model.MusterSheetInfo;
+import com.varista.model.MusterWageInfo;
+import com.varista.entity.Blob; // Import Blob entity
+import com.varista.repository.BlobRepository; // Import BlobRepository
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Autowired; // Import Autowired
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -13,11 +16,18 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.DayOfWeek;
 import java.time.YearMonth;
+import java.time.LocalDateTime; // Import LocalDateTime
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Slf4j
 @Service
 public class ExcelUtils {
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    @Autowired
+    private BlobRepository blobRepository; // Inject BlobRepository
 
     /**
      * Helper method to inspect template headers for debugging.
@@ -40,23 +50,25 @@ public class ExcelUtils {
         return result;
     }
 
-    // New main generator that writes into the first sheet by default and applies styles
-    public ByteArrayInputStream generateAttendanceSheet(List<MusterSheetInfo> attendanceData, YearMonth ym) throws IOException {
+    // Main generator that writes into the first sheet by default and applies styles
+    public ByteArrayInputStream generateMasterRegisterFile(List<MusterWageInfo> attendanceData, YearMonth ym) throws IOException {
 
-        log.info("generateAttendanceSheet called with {} entries for {}", (attendanceData == null ? 0 : attendanceData.size()), ym);
+        log.info("generateMasterRegisterFile called with {} entries for {}", (attendanceData == null ? 0 : attendanceData.size()), ym);
 
         ClassPathResource resource = new ClassPathResource("timesheet_template.xlsx");
         try (InputStream is = resource.getInputStream(); Workbook workbook = new XSSFWorkbook(is); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
-            // Create styles: data font size 20 and Sunday yellow fill
-            Font dataFont = workbook.createFont();
-            dataFont.setFontHeightInPoints((short) 20);
+            // --- Define Fonts and Styles ---
+            // Default font for the workbook (Calibri, size 20)
+            Font defaultFont = workbook.createFont();
+            defaultFont.setFontName("Calibri");
+            defaultFont.setFontHeightInPoints((short) 20); // Default data font size
+
+            // Data Style (Calibri, size 20, Centered, Borders)
             CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setFont(dataFont);
-            // center align text
+            dataStyle.setFont(defaultFont);
             dataStyle.setAlignment(HorizontalAlignment.CENTER);
             dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-            // set thin black borders for the data style
             dataStyle.setBorderTop(BorderStyle.THIN);
             dataStyle.setBorderBottom(BorderStyle.THIN);
             dataStyle.setBorderLeft(BorderStyle.THIN);
@@ -67,13 +79,13 @@ public class ExcelUtils {
             dataStyle.setLeftBorderColor(blackIdx);
             dataStyle.setRightBorderColor(blackIdx);
 
+            // Sunday Style (Calibri, size 20, Yellow background, Centered, Borders)
             CellStyle sundayStyle = workbook.createCellStyle();
-            sundayStyle.setFont(dataFont);
+            sundayStyle.setFont(defaultFont);
             sundayStyle.setFillForegroundColor(IndexedColors.YELLOW.getIndex());
             sundayStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             sundayStyle.setAlignment(HorizontalAlignment.CENTER);
             sundayStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-            // set thin black borders for the sunday style as well
             sundayStyle.setBorderTop(BorderStyle.THIN);
             sundayStyle.setBorderBottom(BorderStyle.THIN);
             sundayStyle.setBorderLeft(BorderStyle.THIN);
@@ -83,108 +95,82 @@ public class ExcelUtils {
             sundayStyle.setLeftBorderColor(blackIdx);
             sundayStyle.setRightBorderColor(blackIdx);
 
-            // 1) Use the first sheet by default
-            Sheet attendanceSheet;
+            // Header Font (Calibri, Bold, size 20)
+            Font headerFont = workbook.createFont();
+            headerFont.setFontName("Calibri");
+            headerFont.setBold(true);
+            headerFont.setFontHeightInPoints((short) 20);
+            
+            // Header Style (Calibri, Bold, size 20, Centered, Borders)
+            CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFont(headerFont);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setTopBorderColor(blackIdx);
+            headerStyle.setBottomBorderColor(blackIdx);
+            headerStyle.setLeftBorderColor(blackIdx);
+            headerStyle.setRightBorderColor(blackIdx);
+
+            // Total Row Style (Calibri, Bold, size 20, Centered, Borders)
+            CellStyle totalRowStyle = workbook.createCellStyle();
+            totalRowStyle.setFont(headerFont); // Use header font for bold
+            totalRowStyle.setAlignment(HorizontalAlignment.CENTER);
+            totalRowStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+            totalRowStyle.setBorderTop(BorderStyle.THIN);
+            totalRowStyle.setBorderBottom(BorderStyle.THIN);
+            totalRowStyle.setBorderLeft(BorderStyle.THIN);
+            totalRowStyle.setBorderRight(BorderStyle.THIN);
+            totalRowStyle.setTopBorderColor(blackIdx);
+            totalRowStyle.setBottomBorderColor(blackIdx);
+            totalRowStyle.setLeftBorderColor(blackIdx);
+            totalRowStyle.setRightBorderColor(blackIdx);
+
+
+            // --- Sheet 1: Master Muster Sheet ---
+            Sheet masterMusterSheet;
             if (workbook.getNumberOfSheets() > 0) {
-                attendanceSheet = workbook.getSheetAt(0);
+                masterMusterSheet = workbook.getSheetAt(0);
+                if (masterMusterSheet == null) {
+                    masterMusterSheet = workbook.createSheet("Master Muster");
+                } else {
+                    workbook.setSheetName(0, "Master Muster");
+                }
             } else {
-                attendanceSheet = workbook.createSheet("Sheet1");
+                masterMusterSheet = workbook.createSheet("Master Muster");
             }
 
-            // 2) Fill data into this sheet
-            int written = fillDataStartingAtRow(attendanceSheet, attendanceData, ym, dataStyle, sundayStyle);
+            int writtenMusterRows = fillMasterMusterData(masterMusterSheet, attendanceData, ym, dataStyle, sundayStyle, headerStyle);
+            log.info("Wrote {} rows into Master Muster Sheet.", writtenMusterRows);
 
-            // 3) If nothing written into template first sheet, create a generated sheet and write there (fallback)
-            if (written == 0 && attendanceData != null && !attendanceData.isEmpty()) {
-                String genName = "Generated Master Attendance";
-                Sheet genSheet = workbook.getSheet(genName);
-                if (genSheet != null) workbook.removeSheetAt(workbook.getSheetIndex(genName));
-                genSheet = workbook.createSheet(genName);
+            // --- Sheet 2: Master Wage Sheet ---
+            Sheet masterWageSheet;
+            if (workbook.getNumberOfSheets() > 1) {
+                masterWageSheet = workbook.getSheetAt(1);
+                workbook.setSheetName(1, "Master Wage");
+            } else {
+                masterWageSheet = workbook.createSheet("Master Wage");
+                workbook.setSheetOrder("Master Wage", 1);
+            }
+            int writtenWageRows = fillMasterWageData(masterWageSheet, attendanceData, ym, dataStyle, headerStyle, totalRowStyle);
+            log.info("Wrote {} rows into Master Wage Sheet.", writtenWageRows);
 
-                int rowNum = 8; // Excel row 9 index
-                int fallbackWritten = 0;
-                for (MusterSheetInfo entry : attendanceData) {
-                    Row row = genSheet.getRow(rowNum);
-                    if (row == null) row = genSheet.createRow(rowNum);
-                    int c = 0;
-                    setCellWithStyle(row, c++, entry.getSlNo(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getAdhaar(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getEip(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getEmployeeName(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getDesignation(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getDob(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getDateOfEntry(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getWorkingHrs(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getInterval(), dataStyle);
-
-                    Map<Integer, String> cal = entry.getCalender();
-                    for (int day = 1; day <= 27; day++) {
-                        String val = (cal == null) ? "" : cal.getOrDefault(day, "");
-                        DayOfWeek dow = DayOfWeek.MONDAY;
-                        try {
-                            dow = ym.atDay(day).getDayOfWeek();
-                        } catch (Exception ignored) {
-                        }
-                        CellStyle style = (dow == DayOfWeek.SUNDAY) ? sundayStyle : dataStyle;
-                        setCellWithStyle(row, c++, val, style);
-                    }
-
-                    // create empty bordered cells for days 28..31 so table shows borders
-                    int fallbackDayStartCol = 9;
-                    for (int day = 28; day <= 31; day++) {
-                        int colIndex = fallbackDayStartCol + (day - 1);
-                        Cell blank = row.getCell(colIndex);
-                        if (blank == null) blank = row.createCell(colIndex);
-                        DayOfWeek dd = DayOfWeek.MONDAY;
-                        try {
-                            dd = ym.atDay(day).getDayOfWeek();
-                        } catch (Exception ignored) {
-                        }
-                        if (dd == DayOfWeek.SUNDAY) blank.setCellStyle(sundayStyle);
-                        else blank.setCellStyle(dataStyle);
-                    }
-
-                    // leave columns for days 28-31 blank (skip 4 columns) before writing totals
-                    c += 4;
-
-                    setCellWithStyle(row, c++, entry.getTotalDays(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getOtHrs(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getNhHrs(), dataStyle);
-                    setCellWithStyle(row, c++, entry.getJobCode(), dataStyle);
-                    setCellWithStyle(row, c, entry.getContractorName(), dataStyle);
-
-                    // Ensure every cell in columns 0..lastCol exists and has borders (sundayStyle for sundays)
-                    int trailing = 5; // totals
-                    int last = fallbackDayStartCol + 31 + (trailing - 1);
-                    for (int ccIdx = 0; ccIdx <= last; ccIdx++) {
-                        Cell ccCell = row.getCell(ccIdx);
-                        if (ccCell == null) ccCell = row.createCell(ccIdx);
-                        DayOfWeek maybe = DayOfWeek.MONDAY;
-                        int dayNum = ccIdx - fallbackDayStartCol + 1;
-                        if (dayNum >= 1 && dayNum <= 27) {
-                            try {
-                                maybe = ym.atDay(dayNum).getDayOfWeek();
-                            } catch (Exception ignored) {
-                            }
-                        }
-                        if (maybe == DayOfWeek.SUNDAY) ccCell.setCellStyle(sundayStyle);
-                        else ccCell.setCellStyle(dataStyle);
-                    }
-
-                    rowNum++;
-                    fallbackWritten++;
-                }
-                written = fallbackWritten;
-                log.info("Hard fallback wrote {} rows into {}", fallbackWritten, genName);
+            // Remove any extra sheets beyond the first two
+            while (workbook.getNumberOfSheets() > 2) {
+                log.warn("Removing extra sheet at index 2 (name: {}).", workbook.getSheetName(2));
+                workbook.removeSheetAt(2);
             }
 
             // write a debug marker top-left so user sees status
             try {
-                Row metaRow = attendanceSheet.getRow(0);
-                if (metaRow == null) metaRow = attendanceSheet.createRow(0);
+                Row metaRow = masterMusterSheet.getRow(0); // Use masterMusterSheet for debug marker
+                if (metaRow == null) metaRow = masterMusterSheet.createRow(0);
                 Cell infoCell = metaRow.getCell(0);
                 if (infoCell == null) infoCell = metaRow.createCell(0);
-                infoCell.setCellValue("GeneratedRows=" + written + "; YearMonth=" + ym.toString());
+                infoCell.setCellValue("GeneratedRows=" + writtenMusterRows + "; YearMonth=" + ym.toString());
             } catch (Exception e) {
                 log.warn("Failed to write debug marker: {}", e.getMessage());
             }
@@ -193,31 +179,42 @@ public class ExcelUtils {
             workbook.write(out);
             try {
                 Path directory = Paths.get("./Monthly_Sheet");
-
-                // Create the directory (and any missing parent directories) if they don't exist
                 Files.createDirectories(directory);
-
-                Path filePath = directory.resolve("Syncra_Monthly_Sheet_" + System.currentTimeMillis() + ".xlsx");
-
+                String fileName = attendanceData.get(0).getSubContractorName() + "_" + ym.toString() + ".xlsx";
+                Path filePath = directory.resolve(fileName);
                 Files.write(filePath, out.toByteArray());
+                log.info("Generated Excel file saved to: {}", filePath.toAbsolutePath());
+
+                // Save blob record to database
+                Blob blobRecord = Blob.builder()
+                        .fileName(fileName)
+                        .generatedMonth(ym.toString())
+                        .filePath(filePath.toString())
+                        .relatedEntityName(attendanceData.get(0).getSubContractorName())
+                        .contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                        .creationDate(LocalDateTime.now())
+                        .build();
+                blobRepository.save(blobRecord);
+                log.info("Blob record saved for file: {}", fileName);
+
             } catch (Exception ex) {
-                log.warn("persist failed: {}", ex.getMessage());
+                log.warn("Failed to persist generated Excel file or save blob record: {}", ex.getMessage());
             }
             return new ByteArrayInputStream(out.toByteArray());
         }
     }
 
     /**
-     * Simplified writer: write data starting at Excel row 9 (index 8) and fixed columns starting at col 0.
-     * Writes 27 day columns (days 1..27) starting at fixed column index 9.
+     * Fills data into the Master Muster Sheet.
      */
-    private int fillDataStartingAtRow(Sheet sheet, List<MusterSheetInfo> data, YearMonth ym, CellStyle dataStyle, CellStyle sundayStyle) {
+    private int fillMasterMusterData(Sheet sheet, List<MusterWageInfo> data, YearMonth ym, CellStyle dataStyle, CellStyle sundayStyle, CellStyle headerStyle) {
         if (data == null || data.isEmpty()) {
-            log.info("No attendance data to write");
+            log.info("No muster master data to write.");
             return 0;
         }
 
-        final int startRow = 8; // Excel row 9 -> index 8
+        final int headerRowIndex = 7; // Excel row 8 -> index 7 (assuming headers are here)
+        final int startDataRow = 8; // Excel row 9 -> index 8
         final int colSl = 0;
         final int colAdhaar = 1;
         final int colEip = 2;
@@ -228,11 +225,18 @@ public class ExcelUtils {
         final int colWorkingHrs = 7;
         final int colInterval = 8;
         final int dayStartCol = 9; // day 1 -> column index 9
-        final int daysToWrite = 27;
+
+        // Set Month and Year
+        Row monthYearRow = sheet.getRow(0);
+        if (monthYearRow == null) monthYearRow = sheet.createRow(0);
+        Cell monthYearCell = monthYearRow.getCell(1); // Column B
+        if (monthYearCell == null) monthYearCell = monthYearRow.createCell(1);
+        monthYearCell.setCellValue(ym.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
+        monthYearCell.setCellStyle(headerStyle); // Use header style for month/year
 
         // Precompute which columns correspond to Sundays in the provided YearMonth
         Set<Integer> sundayColumns = new HashSet<>();
-        for (int day = 1; day <= daysToWrite; day++) {
+        for (int day = 1; day <= 31; day++) {
             try {
                 DayOfWeek dow = ym.atDay(day).getDayOfWeek();
                 if (dow == DayOfWeek.SUNDAY) {
@@ -242,93 +246,80 @@ public class ExcelUtils {
             }
         }
 
-        // Paint the sunday columns' cells from the column header row through the rows we'll write
-        int headerAndWriteEndRow = startRow + data.size() - 1;
-        headerAndWriteEndRow = Math.max(headerAndWriteEndRow, startRow); // at least startRow
-        int headerRowIndex = Math.max(0, startRow - 1); // paint starting at the header row (row above startRow)
+        // --- Apply Header Style to existing header row (row 8, index 7) ---
+        Row headerRow = sheet.getRow(headerRowIndex);
+        if (headerRow == null) headerRow = sheet.createRow(headerRowIndex);
+
+        // Determine the last column that might have a header (Muster Master specific)
+        int lastHeaderCol = dayStartCol + 31 + 5 -1; // 31 days + 5 trailing fields (TotalDays, OT, NH, JobCode, SubContractorName)
+
+        for (int c = 0; c <= lastHeaderCol; c++) {
+            Cell hcell = headerRow.getCell(c);
+            if (hcell == null) hcell = headerRow.createCell(c);
+            // Preserve existing cell value, just apply style
+            hcell.setCellStyle(headerStyle);
+        }
+        log.debug("Applied header style to Muster Master Sheet header row.");
+
+
+        // Apply Sunday styles to data rows
+        int headerAndWriteEndRow = startDataRow + data.size() - 1;
+        headerAndWriteEndRow = Math.max(headerAndWriteEndRow, startDataRow);
         for (Integer colIndex : sundayColumns) {
-            for (int r = headerRowIndex; r <= headerAndWriteEndRow; r++) {
+            for (int r = startDataRow; r <= headerAndWriteEndRow; r++) { // Start from data rows
                 Row rr = sheet.getRow(r);
                 if (rr == null) rr = sheet.createRow(r);
                 Cell cc = rr.getCell(colIndex);
                 if (cc == null) cc = rr.createCell(colIndex);
-                // apply sunday style (centered + yellow)
                 cc.setCellStyle(sundayStyle);
             }
         }
 
-        // Ensure header row has borders for the full table range (columns 0 .. lastCol)
-        int trailingFields = 5; // TotalDays, OT, NH, JobCode, Contractor
-        int lastCol = dayStartCol + 31 + (trailingFields - 1); // dayStartCol + 31 .. last totals col
-        Row headerRow = sheet.getRow(headerRowIndex);
-        if (headerRow == null) headerRow = sheet.createRow(headerRowIndex);
-        for (int c = 0; c <= lastCol; c++) {
-            Cell hcell = headerRow.getCell(c);
-            if (hcell == null) hcell = headerRow.createCell(c);
-            // don't overwrite sunday style for sunday columns
-            if (sundayColumns.contains(c)) continue;
-            // apply data style (borders + center) to header cells
-            hcell.setCellStyle(dataStyle);
-        }
+        log.info("Writing {} entries into Muster Master Sheet starting at row {} (fixed layout)", data.size(), startDataRow + 1);
 
-        log.info("Writing {} entries starting at row {} and column {} (fixed layout)", data.size(), startRow + 1, 0);
-
-        int rowNum = startRow;
+        int rowNum = startDataRow;
         int writtenRows = 0;
-        for (MusterSheetInfo entry : data) {
+        for (MusterWageInfo entry : data) {
             Row row = sheet.getRow(rowNum);
             if (row == null) row = sheet.createRow(rowNum);
 
             // Fixed columns
-            setCellWithStyle(row, colSl, entry.getSlNo(), dataStyle);
-            setCellWithStyle(row, colAdhaar, entry.getAdhaar(), dataStyle);
-            setCellWithStyle(row, colEip, entry.getEip(), dataStyle);
+            setCellWithStyle(row, colSl, entry.getSerialNo(), dataStyle);
+            setCellWithStyle(row, colAdhaar, entry.getAadharNumber(), dataStyle);
+            setCellWithStyle(row, colEip, entry.getEipId(), dataStyle);
             setCellWithStyle(row, colName, entry.getEmployeeName(), dataStyle);
             setCellWithStyle(row, colDesignation, entry.getDesignation(), dataStyle);
-            setCellWithStyle(row, colDob, entry.getDob(), dataStyle);
-            setCellWithStyle(row, colDateOfEntry, entry.getDateOfEntry(), dataStyle);
-            setCellWithStyle(row, colWorkingHrs, entry.getWorkingHrs(), dataStyle);
+            setCellWithStyle(row, colDob, entry.getDateOfBirth() != null ? entry.getDateOfBirth().format(DATE_FORMATTER) : "", dataStyle);
+            setCellWithStyle(row, colDateOfEntry, entry.getDateOfJoining() != null ? entry.getDateOfJoining().format(DATE_FORMATTER) : "", dataStyle);
+            setCellWithStyle(row, colWorkingHrs, entry.getWorkingHours(), dataStyle);
             setCellWithStyle(row, colInterval, entry.getInterval(), dataStyle);
 
-            Map<Integer, String> cal = entry.getCalender();
+            Map<Integer, String> dailyAttendanceStatus = entry.getDailyAttendanceStatus();
             int wroteForEntry = 0;
-            for (int day = 1; day <= daysToWrite; day++) {
+            for (int day = 1; day <= 31; day++) { // Iterate for all 31 days
                 int colIndex = dayStartCol + (day - 1);
-                String val = (cal == null) ? "" : cal.getOrDefault(day, "");
-                DayOfWeek dow = DayOfWeek.MONDAY;
-                try {
-                    dow = ym.atDay(day).getDayOfWeek();
-                } catch (Exception ignored) {
-                }
+                String val = (dailyAttendanceStatus == null) ? "" : dailyAttendanceStatus.getOrDefault(day, "");
+
                 Cell cell = row.getCell(colIndex);
                 if (cell == null) cell = row.createCell(colIndex);
                 setCellValue(cell, val);
-                cell.setCellStyle(dow == DayOfWeek.SUNDAY ? sundayStyle : dataStyle);
+                // Apply style based on precomputed sundayColumns
+                cell.setCellStyle(sundayColumns.contains(colIndex) ? sundayStyle : dataStyle);
                 if (val != null && !val.trim().isEmpty()) wroteForEntry++;
             }
 
-            // Ensure columns for days 28..31 exist and have borders (empty cells)
-            for (int day = daysToWrite + 1; day <= 31; day++) {
-                int colIndex = dayStartCol + (day - 1);
-                Cell blank = row.getCell(colIndex);
-                if (blank == null) blank = row.createCell(colIndex);
-                // if this column is Sunday (unlikely for days >27 in our map) apply sundayStyle, else dataStyle
-                if (sundayColumns.contains(colIndex)) blank.setCellStyle(sundayStyle);
-                else blank.setCellStyle(dataStyle);
-            }
+            // Trailing fixed columns after day 31
+            int currentTrailingCol = dayStartCol + 31; // Start after the 31st day column
+            setCellWithStyle(row, currentTrailingCol++, entry.getTotalDaysWorked(), dataStyle);
+            setCellWithStyle(row, currentTrailingCol++, entry.getOverTimeHours(), dataStyle);
+            setCellWithStyle(row, currentTrailingCol++, entry.getNightHalt(), dataStyle);
+            setCellWithStyle(row, currentTrailingCol++, entry.getJobCode(), dataStyle);
+            setCellWithStyle(row, currentTrailingCol++, entry.getSubContractorName(), dataStyle);
 
-            // trailing fixed columns after day 31 (leave days 28-31 blank)
-            int afterDays = dayStartCol + 31;
-            setCellWithStyle(row, afterDays++, entry.getTotalDays(), dataStyle);
-            setCellWithStyle(row, afterDays++, entry.getOtHrs(), dataStyle);
-            setCellWithStyle(row, afterDays++, entry.getNhHrs(), dataStyle);
-            setCellWithStyle(row, afterDays++, entry.getJobCode(), dataStyle);
-            setCellWithStyle(row, afterDays, entry.getContractorName(), dataStyle);
+            log.debug("Row {} (serialNo={}): wrote {} day-cells", rowNum + 1, entry.getSerialNo(), wroteForEntry);
 
-            log.debug("Row {} (slNo={}): wrote {} day-cells", rowNum + 1, entry.getSlNo(), wroteForEntry);
-
-            // Ensure every cell in columns 0..lastCol exists and has borders (sundayStyle for sundays)
-            for (int c = 0; c <= lastCol; c++) {
+            // Ensure every cell in columns 0..lastCol exists and has borders
+            for (int c = 0; c <= lastHeaderCol; c++) {
                 Cell cc = row.getCell(c);
                 if (cc == null) cc = row.createCell(c);
                 if (sundayColumns.contains(c)) cc.setCellStyle(sundayStyle);
@@ -339,9 +330,278 @@ public class ExcelUtils {
             rowNum++;
         }
 
-        log.info("Wrote {} rows into sheet {} (fixed layout)", writtenRows, sheet.getSheetName());
+        log.info("Wrote {} rows into Muster Master Sheet (fixed layout).", writtenRows);
         return writtenRows;
     }
+
+    /**
+     * Fills data into the Master Wage Sheet.
+     */
+    private int fillMasterWageData(Sheet sheet, List<MusterWageInfo> data, YearMonth ym, CellStyle dataStyle, CellStyle headerStyle, CellStyle totalRowStyle) {
+        if (data == null || data.isEmpty()) {
+            log.info("No muster wage data to write.");
+            return 0;
+        }
+
+        // Define header row and columns for the wage sheet
+        int headerRowIndex = 9;
+        int startDataRow = 9;
+        
+        // Column indices for sums
+        final int colTotalDaysWorked = 12;
+        final int colOverTimeHours = 13;
+        final int colNightHalt = 14;
+        final int colBasicWages = 15;
+        final int colOtAmount = 16;
+        final int colNhAmount = 17;
+        final int colHra = 18;
+        final int colGrossWage = 19;
+        final int colPfDeduction = 20;
+        final int colEsiDeduction = 21; // Assuming this is the ESIC deduction column
+        final int colPtDeduction = 22;
+        final int colLwfDeduction = 23;
+        final int colOtherDeductions = 24;
+        final int colTotalDeductions = 25;
+        final int colNetWage = 26;
+
+
+        // Set Month and Year
+        Row monthYearRow = sheet.getRow(0);
+        if (monthYearRow == null) monthYearRow = sheet.createRow(0);
+        Cell monthYearCell = monthYearRow.getCell(0); // Column A
+        if (monthYearCell == null) monthYearCell = monthYearRow.createCell(0);
+        monthYearCell.setCellValue(ym.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
+        monthYearCell.setCellStyle(headerStyle); // Use header style for month/year
+
+        // --- Apply Header Style to existing header row (row 1, index 0) ---
+        Row headerRow = sheet.getRow(headerRowIndex);
+        if (headerRow == null) headerRow = sheet.createRow(headerRowIndex);
+
+        // Assuming a fixed number of header columns based on the previous implementation
+        int lastHeaderCol = 29;
+        for (int c = 0; c <= lastHeaderCol; c++) {
+            Cell hcell = headerRow.getCell(c);
+            if (hcell == null) hcell = headerRow.createCell(c);
+            // Preserve existing cell value, just apply style
+            headerStyle.setFillBackgroundColor(IndexedColors.WHITE.getIndex());
+            hcell.setCellStyle(headerStyle);
+
+
+        }
+        log.debug("Applied header style to Master Wage Sheet header row.");
+
+        // Auto-size columns for headers (only if headers are present)
+        for(int i = 0; i <= lastHeaderCol; i++) {
+            sheet.autoSizeColumn(i);
+        }
+
+        log.info("Writing {} entries into Master Wage Sheet starting at row {}.", data.size(), startDataRow + 1);
+
+        int rowNum = startDataRow;
+        int writtenRows = 0;
+        
+        // Sum variables
+        double totalWorkedDays = 0;
+        double totalOverTimeHours = 0;
+        double totalNightHalt = 0;
+        double totalBasicWages = 0;
+        double totalOtAmount = 0;
+        double totalNhAmount = 0;
+        double totalHra = 0;
+        double totalGrossWage = 0;
+        double totalPfDeduction = 0;
+        double totalEsiDeduction = 0; 
+        double totalPtDeduction = 0;
+        double totalLwfDeduction = 0;
+        double totalOtherDeductions = 0;
+        double totalTotalDeductions = 0;
+        double totalNetWage = 0;
+
+
+        for (MusterWageInfo entry : data) {
+            Row row = sheet.createRow(rowNum);
+            int col = 0;
+            setCellWithStyle(row, col++, entry.getSerialNo(), dataStyle);
+            setCellWithStyle(row, col++, entry.getAadharNumber(), dataStyle);
+            setCellWithStyle(row, col++, entry.getEipId(), dataStyle);
+            setCellWithStyle(row, col++, entry.getEmployeeName(), dataStyle);
+            setCellWithStyle(row, col++, entry.getFatherName(), dataStyle);
+            setCellWithStyle(row, col++, entry.getGender(), dataStyle);
+            setCellWithStyle(row, col++, entry.getDesignation(), dataStyle);
+            setCellWithStyle(row, col++, entry.getCategory(), dataStyle);
+            setCellWithStyle(row, col++, entry.getDateOfJoining(), dataStyle);
+            setCellWithStyle(row, col++, entry.getUanNo(), dataStyle);
+            setCellWithStyle(row, col++, entry.getEsiNo(), dataStyle); // ESI Number (not deduction)
+            setCellWithStyle(row, col++, entry.getDailyWage(), dataStyle);
+            
+            // Accumulate sums and set cell values
+            if (entry.getTotalDaysWorked() != 0) {
+                totalWorkedDays += entry.getTotalDaysWorked();
+                setCellWithStyle(row, col++, entry.getTotalDaysWorked(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+            
+            if (entry.getOverTimeHours() != 0) {
+                totalOverTimeHours += entry.getOverTimeHours();
+                setCellWithStyle(row, col++, entry.getOverTimeHours(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getNightHalt() != 0) {
+                totalNightHalt += entry.getNightHalt();
+                setCellWithStyle(row, col++, entry.getNightHalt(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getBasicWages() != 0) {
+                totalBasicWages += entry.getBasicWages();
+                setCellWithStyle(row, col++, entry.getBasicWages(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getOtAmount() != 0) {
+                totalOtAmount += entry.getOtAmount();
+                setCellWithStyle(row, col++, entry.getOtAmount(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getNhAmount() != 0) {
+                totalNhAmount += entry.getNhAmount();
+                setCellWithStyle(row, col++, entry.getNhAmount(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getHra() != 0) {
+                totalHra += entry.getHra();
+                setCellWithStyle(row, col++, entry.getHra(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getGrossWage() != 0) {
+                totalGrossWage += entry.getGrossWage();
+                setCellWithStyle(row, col++, entry.getGrossWage(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getPfDeduction() != 0) {
+                totalPfDeduction += entry.getPfDeduction();
+                setCellWithStyle(row, col++, entry.getPfDeduction(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            // Assuming getEsiDeduction() exists for ESIC deduction.
+            // If MusterWageInfo does not have a getEsiDeduction() method, this will need adjustment.
+            // For now, I'll assume it exists and returns a Double.
+            Double esiDeductionValue = null;
+            try {
+                java.lang.reflect.Method getEsiDeductionMethod = entry.getClass().getMethod("getEsiDeduction");
+                esiDeductionValue = (Double) getEsiDeductionMethod.invoke(entry);
+            } catch (NoSuchMethodException e) {
+                log.warn("MusterWageInfo does not have getEsiDeduction() method. ESI Deduction will be 0.0.");
+            } catch (Exception e) {
+                log.warn("Error invoking getEsiDeduction() on MusterWageInfo: {}", e.getMessage());
+            }
+
+            if (esiDeductionValue != null) {
+                totalEsiDeduction += esiDeductionValue;
+                setCellWithStyle(row, col++, esiDeductionValue, dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+
+            if (entry.getPtDeduction() != 0) {
+                totalPtDeduction += entry.getPtDeduction();
+                setCellWithStyle(row, col++, entry.getPtDeduction(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getLwfDeduction() != 0) {
+                totalLwfDeduction += entry.getLwfDeduction();
+                setCellWithStyle(row, col++, entry.getLwfDeduction(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getOtherDeductions() != 0) {
+                totalOtherDeductions += entry.getOtherDeductions();
+                setCellWithStyle(row, col++, entry.getOtherDeductions(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getTotalDeductions() != 0) {
+                totalTotalDeductions += entry.getTotalDeductions();
+                setCellWithStyle(row, col++, entry.getTotalDeductions(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+
+            if (entry.getNetWage() != 0) {
+                totalNetWage += entry.getNetWage();
+                setCellWithStyle(row, col++, entry.getNetWage(), dataStyle);
+            } else {
+                setCellWithStyle(row, col++, "", dataStyle);
+            }
+            
+            setCellWithStyle(row, col++, entry.getDateOfPayment(), dataStyle);
+            setCellWithStyle(row, col++, entry.getJobCode(), dataStyle);
+            setCellWithStyle(row, col++, entry.getSubContractorName(), dataStyle);
+            setCellWithStyle(row, col++, entry.getRemarks(), dataStyle);
+
+            writtenRows++;
+            rowNum++;
+        }
+
+        // Add total row
+        if (writtenRows > 0) {
+            Row totalRow = sheet.createRow(rowNum);
+            setCellWithStyle(totalRow, 0, "Total", totalRowStyle); // Label "Total" in the first column
+            
+            // Apply total values to respective columns
+            setCellWithStyle(totalRow, colTotalDaysWorked, totalWorkedDays, totalRowStyle);
+            setCellWithStyle(totalRow, colOverTimeHours, totalOverTimeHours, totalRowStyle);
+            setCellWithStyle(totalRow, colNightHalt, totalNightHalt, totalRowStyle);
+            setCellWithStyle(totalRow, colBasicWages, totalBasicWages, totalRowStyle);
+            setCellWithStyle(totalRow, colOtAmount, totalOtAmount, totalRowStyle);
+            setCellWithStyle(totalRow, colNhAmount, totalNhAmount, totalRowStyle);
+            setCellWithStyle(totalRow, colHra, totalHra, totalRowStyle);
+            setCellWithStyle(totalRow, colGrossWage, totalGrossWage, totalRowStyle);
+            setCellWithStyle(totalRow, colPfDeduction, totalPfDeduction, totalRowStyle);
+            setCellWithStyle(totalRow, colEsiDeduction, totalEsiDeduction, totalRowStyle);
+            setCellWithStyle(totalRow, colPtDeduction, totalPtDeduction, totalRowStyle);
+            setCellWithStyle(totalRow, colLwfDeduction, totalLwfDeduction, totalRowStyle);
+            setCellWithStyle(totalRow, colOtherDeductions, totalOtherDeductions, totalRowStyle);
+            setCellWithStyle(totalRow, colTotalDeductions, totalTotalDeductions, totalRowStyle);
+            setCellWithStyle(totalRow, colNetWage, totalNetWage, totalRowStyle);
+
+            // Ensure all cells in the total row up to lastHeaderCol have borders
+            for (int c = 0; c <= lastHeaderCol; c++) {
+                Cell cell = totalRow.getCell(c);
+                if (cell == null) {
+                    cell = totalRow.createCell(c);
+                }
+                // Always apply totalRowStyle to ensure borders and consistent formatting
+                cell.setCellStyle(totalRowStyle);
+            }
+
+            writtenRows++; // Count the total row as well
+        }
+
+        log.info("Wrote {} rows into Master Wage Sheet.", writtenRows);
+        return writtenRows;
+    }
+
 
     // small helper used by generated-sheet fallback
     private void setCellWithStyle(Row row, int colIndex, Object value, CellStyle style) {
@@ -370,6 +630,15 @@ public class ExcelUtils {
         return switch (cell.getCellType()) {
             case STRING -> cell.getStringCellValue().trim();
             case NUMERIC -> String.valueOf((int) cell.getNumericCellValue());
+            case FORMULA -> {
+                try {
+                    // Attempt to evaluate formula as numeric
+                    yield String.valueOf((int) cell.getNumericCellValue());
+                } catch (IllegalStateException e) {
+                    // If formula result is string, get it as string
+                    yield cell.getStringCellValue().trim();
+                }
+            }
             default -> "";
         };
     }

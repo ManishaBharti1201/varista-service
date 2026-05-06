@@ -28,6 +28,7 @@ public class NotificationController {
 
     public NotificationController(NotificationService notificationService) {
         this.notificationService = notificationService;
+        log.info("NotificationController initialized.");
     }
 
     @PostMapping("/create")
@@ -38,7 +39,7 @@ public class NotificationController {
             @ApiResponse(responseCode = "500", description = "Internal server error during creation")
     })
     public ResponseEntity<Notification> createNotification(@RequestBody Notification commands) {
-        log.info("Request received to create notification for customer: {}", commands.getId());
+        log.info("Received request to create notification for ID: {}", commands.getId());
         try {
             Notification response = notificationService.createNotification(commands);
             log.info("Notification created successfully with ID: {}", response.getId());
@@ -56,7 +57,7 @@ public class NotificationController {
     public ResponseEntity<Void> deleteNotification(@Parameter(description = "ID of the notification to delete", example = "101")
                                                 @PathVariable Integer id) {
 
-        log.info("Request received to delete notification ID: {}", id);
+        log.info("Received request to delete notification ID: {}", id);
         notificationService.deleteNotification(id);
         log.info("Notification ID: {} deleted successfully", id);
         return ResponseEntity.status(HttpStatus.OK)
@@ -81,15 +82,15 @@ public class NotificationController {
             }
     )
     public ResponseEntity<List<Notification>> listNotifications() {
-        log.info("Fetching all notifications from database");
+        log.info("Received request to fetch all notifications from database.");
         List<Notification> notifications = notificationService.getAll();
 
         if (notifications.isEmpty()) {
-            log.info("No notifications found in the system");
+            log.info("No notifications found in the system.");
             return ResponseEntity.noContent().build();
         }
 
-        log.info("Successfully retrieved {} notifications", notifications.size());
+        log.info("Successfully retrieved {} notifications.", notifications.size());
         return ResponseEntity.ok(notifications);
     }
 }

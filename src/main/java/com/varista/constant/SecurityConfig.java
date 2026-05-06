@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
+                                "/actuator/**", // Added to permit access to Actuator endpoints
                                 "/quotation/health",
                                 "/user/login",
                                 "/user/register",

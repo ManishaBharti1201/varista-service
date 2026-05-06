@@ -47,23 +47,29 @@ public class InvoiceService {
 
 
     public InvoiceResponse createInvoice(InvoiceRequest invoiceRequest) throws IOException {
-        // Convert InvoiceRequest to InvoiceData (mocked for this example)
+        log.info("Initiating invoice creation for buyer ID: {}", invoiceRequest.getBuyerId());
         InvoiceResponse invoiceResponse = new InvoiceResponse();
-        log.info("Creating invoice for buyer ID: {}", invoiceRequest);
         try {
             String htmlTemplate;
             InvoiceData invoiceData = new InvoiceData();
 
             Company buyerInfo = companyService.getCompanyById(invoiceRequest.getBuyerId());
+            if (buyerInfo == null) {
+                log.error("Buyer with ID {} not found for invoice creation.", invoiceRequest.getBuyerId());
+                throw new RuntimeException("Buyer not found with ID: " + invoiceRequest.getBuyerId());
+            }
 
             invoiceData = invoiceMapper.mapInvoiceRequestToInvoiceData(invoiceRequest, buyerInfo);
+            log.debug("Mapped InvoiceRequest to InvoiceData for invoice number: {}", invoiceData.getInvoiceNo());
 
             ClassPathResource resource = new ClassPathResource("new_invoice_template.html");
             try (InputStream inputStream = resource.getInputStream()) {
                 htmlTemplate = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             }
+            log.debug("Loaded HTML template for invoice.");
 
             htmlTemplate = generateItemRowsHtml(invoiceData.getItems(), htmlTemplate);
+            log.debug("Generated item rows HTML for invoice.");
 
             // Populate the HTML template (simplified example)
             String populatedHtml = htmlTemplate
@@ -92,9 +98,7 @@ public class InvoiceService {
                     .replace("{{ifsc_code}}", invoiceData.getBankDetails().getIfsc())
                     .replace("{{company_name}}", "Varista Industrial Solutions");
 
-            log.info("Populated HTML for invoice: {}", populatedHtml);
-
-            // Converthtml to pdf and save to cloud storage or return the invoice id
+            log.debug("Populated HTML template for invoice number: {}", invoiceData.getInvoiceNo());
 
             // Path: /app/invoices/{companyId}/INV-{id}.pdf
             String directory = INVOICE_DIRECTORY + invoiceData.getBuyer().getName().replace("/", "_");
@@ -102,12 +106,12 @@ public class InvoiceService {
             Path dirPath = Paths.get(directory);
             if (!dirPath.toFile().exists()) {
                 log.info("Creating directory for invoice at path: {}", dirPath.toAbsolutePath());
-                dirPath.toFile().mkdirs();
+                Files.createDirectories(dirPath); // Use Files.createDirectories for better practice
             }
             String fileName = invoiceData.getInvoiceNo() + ".pdf";
             String fullPath = directory + "/" + fileName;
-            //PdfGenerator.generateInvoicePdfToFile(populatedHtml, fullPath);
             PdfGenerator.generatePdfFromHtml(populatedHtml, fullPath);
+            log.info("Invoice PDF generated and saved to: {}", fullPath);
 
             invoiceResponse.setInvoiceId(invoiceData.getInvoiceId());
             invoiceResponse.setInvoiceNumber(invoiceData.getInvoiceNo());
@@ -126,13 +130,14 @@ public class InvoiceService {
 
             return invoiceResponse;
         } catch (Exception e) {
-            log.error("Error creating invoice: {}", e.getMessage());
-
+            log.error("Error creating invoice for buyer ID {}: {}", invoiceRequest.getBuyerId(), e.getMessage(), e);
             throw e;
         }
     }
 
-    private String generateItemRowsHtml(List<InvoiceData.Item> items, String itemTable) {
+    private String generateItemRowsHtml(List<InvoiceData.Item> items, String htmlTemplate) {
+        log.debug("Generating item rows HTML for {} items.", items.size());
+        String itemTable = htmlTemplate; // Use the passed htmlTemplate as base
         for (int i = 0; i < 15; i++) {
             int row = i + 1; // because placeholders start from 1
 
@@ -159,85 +164,98 @@ public class InvoiceService {
                         .replace("{{item_amount_" + row + "}}", "");
             }
         }
-
+        log.debug("Finished generating item rows HTML.");
         return itemTable;
 
     }
 
     public void deleteInvoice(Long id) throws IOException {
-
+        log.info("Attempting to delete invoice with ID: {}", id);
         Long companyId = invoiceRepository.findById(id).map(Invoice::getCompanyId)
-                .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
+                .orElseThrow(() -> {
+                    log.error("Invoice not found with ID: {} for deletion.", id);
+                    return new RuntimeException("Invoice not found with ID: " + id);
+                });
         String companyName = companyService.getCompanyById(companyId).getName().replace("/", "_");
-        log.info("Attempting to delete invoice with ID: {} for company: {}", id, companyName);
+        log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
         String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
-        //delete the directory if no other quotation files are present for the same customer, otherwise delete only the file
         try {
             Path dirPath = Paths.get(INVOICE_DIRECTORY + "/" + companyName);
             if (Files.exists(dirPath)) {
                 long fileCount = Files.list(dirPath).filter(Files::isRegularFile).count();
                 if (fileCount == 1) {
                     Files.deleteIfExists(Path.of(filePathPattern));
+                    log.info("Deleted invoice file: {}", filePathPattern);
                     Files.deleteIfExists(dirPath);
-                    log.info("Deleted directory: {}", dirPath.toAbsolutePath());
+                    log.info("Deleted empty directory: {}", dirPath.toAbsolutePath());
                 } else {
                     Path filePath = Paths.get(filePathPattern);
                     Files.deleteIfExists(filePath);
-                    log.info("Deleted file: {}", filePath.toAbsolutePath());
+                    log.info("Deleted invoice file: {}", filePath.toAbsolutePath());
                 }
+            } else {
+                log.warn("Invoice directory not found for company: {}", companyName);
             }
         } catch (IOException e) {
-            log.error("Error deleting quotation file: {}", e.getMessage());
+            log.error("Error deleting invoice file for ID {}: {}", id, e.getMessage(), e);
             throw e;
         }
         invoiceRepository.deleteById(id);
+        log.info("Invoice ID: {} deleted from database.", id);
     }
 
     public List<InvoiceData> getAll() {
+        log.info("Fetching all invoices from the database.");
         List<Invoice> invoices = invoiceRepository.findAll();
-
+        log.info("Retrieved {} invoices from the database.", invoices.size());
         return invoiceMapper.mapToInvoiceData(invoices);
     }
 
     public Resource downloadInvoice(String id) throws IOException {
+        log.info("Attempting to download invoice with ID: {}", id);
         try {
-            log.info("Attempting to download invoice with ID: {}", id);
             Long companyId = invoiceRepository.findById(Long.valueOf(id))
                     .map(Invoice::getCompanyId)
-                    .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
+                    .orElseThrow(() -> {
+                        log.error("Invoice not found with ID: {} for download.", id);
+                        return new RuntimeException("Invoice not found with ID: " + id);
+                    });
 
             String companyName = companyService.getCompanyById(companyId)
                     .getName().replace("/", "_");
+            log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
             String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
 
             Path filePath = Paths.get(filePathPattern);
             if (!Files.exists(filePath)) {
+                log.error("Invoice file not found on disk for ID: {}. Path: {}", id, filePathPattern);
                 throw new IOException("Invoice file not found on disk for ID: " + id);
             }
             ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(filePath));
             log.info("Streaming PDF for invoice ID: {} (Size: {} bytes)", id, resource.contentLength());
             return resource;
         } catch (IOException e) {
-            log.error("Error downloading invoice file: {}", e.getMessage());
+            log.error("Error downloading invoice file for ID {}: {}", id, e.getMessage(), e);
             throw e;
         }
     }
 
     public InvoiceResponse markAsPaid(Long id) {
-        // Implement the logic to update the invoice based on the provided ID and request data
-        // This may involve fetching the existing invoice, updating its details, regenerating the PDF, and saving changes to the database
-        // For now, we will return a placeholder response
+        log.info("Attempting to mark invoice with ID: {} as Paid.", id);
         InvoiceResponse invoiceResponse = new InvoiceResponse();
         Invoice existingInvoice = invoiceRepository.findById(id)
                 .map(invoice -> {
-                    log.info("Marking invoice with ID: {} as Paid", id);
                     invoice.setStatus("Paid");
-                    // Update other fields as necessary
-                    return invoiceRepository.save(invoice);
+                    Invoice updatedInvoice = invoiceRepository.save(invoice);
+                    log.info("Invoice with ID: {} marked as Paid and saved.", id);
+                    return updatedInvoice;
                 })
-                .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
+                .orElseThrow(() -> {
+                    log.error("Invoice not found with ID: {} for marking as paid.", id);
+                    return new RuntimeException("Invoice not found with ID: " + id);
+                });
 
         invoiceResponse.setInvoiceId(existingInvoice.getId());
         invoiceResponse.setInvoiceNumber(existingInvoice.getInvoiceNumber());
@@ -245,39 +263,53 @@ public class InvoiceService {
         invoiceResponse.setAmount(existingInvoice.getTotalAmount().toString());
         invoiceResponse.setStatus("Paid");
         invoiceResponse.setMessage("Invoice marked as Paid successfully");
-
+        log.info("Invoice response generated for marked as paid invoice ID: {}", id);
         return invoiceResponse;
     }
 
     public InvoiceResponse replaceInvoice(Long id, MultipartFile file) {
+        log.info("Attempting to replace invoice file for ID: {} with new file: {}", id, file.getOriginalFilename());
         try {
             // 1. Fetch Invoice metadata
             Invoice invoice = invoiceRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Invoice not found with ID: " + id));
+                    .orElseThrow(() -> {
+                        log.error("Invoice not found with ID: {} for file replacement.", id);
+                        return new RuntimeException("Invoice not found with ID: " + id);
+                    });
 
             String companyName = companyService.getCompanyById(invoice.getCompanyId())
                     .getName().replaceAll("[\\\\/:*?\"<>|]", "_"); // Robust filename sanitization
+            log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
             // 2. Define Pathing
             Path directoryPath = Paths.get(INVOICE_DIRECTORY, companyName);
             Path filePath = directoryPath.resolve("INV-" + id + ".pdf");
+            log.debug("Target file path for replacement: {}", filePath);
 
             // 3. Ensure directory exists
             if (!Files.exists(directoryPath)) {
                 Files.createDirectories(directoryPath);
+                log.info("Created directory: {}", directoryPath);
             }
 
             // 4. Atomic-style Replacement:
-            // We use REPLACE_EXISTING. This is more efficient than manual delete + write
-            // because the OS handles the pointer swap/overwrite more cleanly.
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Invoice file for ID: {} replaced successfully at: {}", id, filePath);
 
             // 5. Update metadata if necessary and return response
-            return new InvoiceResponse();
+            // Assuming InvoiceResponse is just a success indicator here,
+            // you might want to populate it with actual invoice details if needed.
+            InvoiceResponse response = new InvoiceResponse();
+            response.setInvoiceId(id);
+            response.setMessage("Invoice file replaced successfully.");
+            response.setStatus("SUCCESS");
+            return response;
 
         } catch (IOException e) {
+            log.error("File system error during invoice replacement for ID {}: {}", id, e.getMessage(), e);
             throw new RuntimeException(" File system error: " + e.getMessage(), e);
         } catch (Exception e) {
+            log.error("Failed to replace invoice for ID {}: {}", id, e.getMessage(), e);
             throw new RuntimeException("Failed to replace invoice: " + e.getMessage(), e);
         }
     }

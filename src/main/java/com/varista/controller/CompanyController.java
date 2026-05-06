@@ -22,11 +22,13 @@ public class CompanyController {
 
     public CompanyController(CompanyService companyService) {
         this.companyService = companyService;
+        log.info("CompanyController initialized.");
     }
 
     @GetMapping("/all")
     @Operation(summary = "Get all companies", description = "Retrieves a complete list of all companies registered in the system")
     public List<Company> getCompanies() {
+        log.info("Received request to get all companies.");
         return companyService.getAll();
     }
 
@@ -35,25 +37,22 @@ public class CompanyController {
     public Company getCompany(
             @Parameter(description = "ID of the company to retrieve", example = "1")
             @PathVariable Long id) {
+        log.info("Received request to get company by ID: {}", id);
         return companyService.getCompanyById(id);
     }
 
     @PostMapping("/create")
     @Operation(summary = "Create a new company", description = "Adds a new company to the system")
     public Company createCompany(@RequestBody CompanyInfo company) {
-        log.info("Creating company: {}", company);
-        // Implementation for creating a new company goes here
+        log.info("Received request to create company: {}", company);
         Company companyResponse = companyService.createCompany(company);
-        return companyResponse; // Placeholder return statement
+        return companyResponse;
     }
 
     @PutMapping("/updatePayment")
     public Company updatePayment(@RequestBody CompanyInfo paymentRequest){
-        log.info("Received request for payment update {}", paymentRequest);
+        log.info("Received request for payment update: {}", paymentRequest);
         Company paymentResponse = companyService.updatePayment(paymentRequest);
         return paymentResponse;
     }
-
-
-
 }

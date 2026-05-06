@@ -10,10 +10,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/employee")
 @CrossOrigin(origins = "*")
@@ -24,6 +26,7 @@ public class EmployeeController {
 
     public EmployeeController(EmployeeService employeeService) {
         this.employeeService = employeeService;
+        log.info("EmployeeController initialized.");
     }
 
     @PostMapping("/upsert")
@@ -37,6 +40,7 @@ public class EmployeeController {
     public Employee createEmployee(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Employee details for registration", required = true)
             @RequestBody Employee employeeRequest) {
+        log.info("Received request to create/upsert employee: {}", employeeRequest.getEmail());
         return employeeService.createEmployee(employeeRequest);
     }
 
@@ -49,6 +53,7 @@ public class EmployeeController {
     public void deleteEmployee(
             @Parameter(description = "The unique ID of the employee", example = "101")
             @PathVariable Long id) {
+        log.info("Received request to delete employee with ID: {}", id);
         employeeService.deleteEmployee(id);
     }
 
@@ -59,6 +64,7 @@ public class EmployeeController {
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = Employee.class))))
     })
     public List<Employee> getAllEmployees() {
+        log.info("Received request to get all employees.");
         return employeeService.getAll();
     }
 }

@@ -46,23 +46,25 @@ public class QuotationService {
 
 
     public Quotation createQuotation(QuotationRequest quotationRequest) throws IOException {
-
+        log.info("Initiating quotation creation for customer: {}", quotationRequest.getCustomerName());
         quotationRequest.setId(InvoiceUtils.generate5DigitId());
         String quotationId = "EST-" + InvoiceUtils.generate5DigitId();
         Quotation quotationResponse = new Quotation();
         try {
-            log.info("Creating quotation for customer: {}", quotationRequest.getCustomerName());
             String htmlTemplate;
             ClassPathResource resource = new ClassPathResource("quotation_template.html");
             try (InputStream inputStream = resource.getInputStream()) {
                 htmlTemplate = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             }
+            log.debug("Loaded HTML template for quotation.");
 
             htmlTemplate = generateQuoteItemRowsHtml(quotationRequest.getItems(), htmlTemplate);
+            log.debug("Generated item rows HTML for quotation.");
 
             //convert image into base64 and update the html template
             String logoBase64 = InvoiceUtils.convertImageToBase64();
             htmlTemplate = htmlTemplate.replace("{{company_logo}}", "data:image/png;base64," + logoBase64);
+            log.debug("Company logo converted to base64 and embedded in HTML.");
 
             // Populate the HTML template (simplified example)
             String populatedHtml = htmlTemplate
@@ -73,7 +75,7 @@ public class QuotationService {
                     .replace("{{tax_amount}}", String.valueOf(quotationRequest.getTaxAmount()))
                     .replace("{{total_amt}}", String.valueOf(quotationRequest.getTotalAmount()));
 
-            log.info("Populated HTML for quotation:\n{}", populatedHtml);
+            log.debug("Populated HTML for quotation number: {}", quotationId);
 
             // Path: /app/quotations/{companyId}/INV-{id}.pdf
             String directory = QUOTATION_DIRECTORY + quotationRequest.getCustomerName().replace("/", "_");
@@ -81,12 +83,13 @@ public class QuotationService {
             Path dirPath = Paths.get(directory);
             if (!dirPath.toFile().exists()) {
                 log.info("Creating directory for quotations at path: {}", dirPath.toAbsolutePath());
-                dirPath.toFile().mkdirs();
+                Files.createDirectories(dirPath); // Use Files.createDirectories for better practice
             }
             String fileName = quotationId + ".pdf";
             String fullPath = directory + "/" + fileName;
 
             PdfGenerator.generatePdfFromHtml(populatedHtml, fullPath);
+            log.info("Quotation PDF generated and saved to: {}", fullPath);
 
             quotationResponse.setId(quotationRequest.getId());
             quotationResponse.setQuotationNumber(quotationId);
@@ -101,50 +104,55 @@ public class QuotationService {
             return quotationResponse;
 
         } catch (Exception e) {
-            log.error("Error creating quotation: {}", e.getMessage());
+            log.error("Error creating quotation for customer {}: {}", quotationRequest.getCustomerName(), e.getMessage(), e);
             throw e;
         }
     }
 
     public void deleteQuotation(Long id) throws IOException {
-
+        log.info("Attempting to delete quotation with ID: {}", id);
         String getDirectoryName = quotationRepository.findById(id)
                 .map(Quotation::getCustomerName)
                 .orElse("unknown_customer")
                 .replace("/", "_");
+        log.debug("Found quotation ID: {} belonging to customer: {}", id, getDirectoryName);
+
         String filePathPattern = QUOTATION_DIRECTORY + "/" + getDirectoryName + "/EST-" + id + ".pdf";
-        //delete the directory if no other quotation files are present for the same customer, otherwise delete only the file
         try {
-            log.info("Attempting to delete quotation file for ID: {} at path: {}", id, filePathPattern);
             Path dirPath = Paths.get(QUOTATION_DIRECTORY + "/" + getDirectoryName);
             if (Files.exists(dirPath)) {
                 long fileCount = Files.list(dirPath).filter(Files::isRegularFile).count();
                 if (fileCount == 1) {
                     Files.deleteIfExists(Path.of(filePathPattern));
+                    log.info("Deleted quotation file: {}", filePathPattern);
                     Files.deleteIfExists(dirPath);
-                    log.info("Deleted directory: {}", dirPath.toAbsolutePath());
+                    log.info("Deleted empty directory: {}", dirPath.toAbsolutePath());
                 } else {
                     Path filePath = Paths.get(filePathPattern);
                     Files.deleteIfExists(filePath);
-                    log.info("Deleted file: {}", filePath.toAbsolutePath());
+                    log.info("Deleted quotation file: {}", filePath.toAbsolutePath());
                 }
+            } else {
+                log.warn("Quotation directory not found for customer: {}", getDirectoryName);
             }
         } catch (IOException e) {
-            log.error("Error deleting quotation file: {}", e.getMessage());
+            log.error("Error deleting quotation file for ID {}: {}", id, e.getMessage(), e);
             throw e;
         }
-
-
         quotationRepository.deleteById(id);
+        log.info("Quotation ID: {} deleted from database.", id);
     }
 
     public List<Quotation> getAll() {
+        log.info("Fetching all quotations from the database.");
         List<Quotation> quotations = quotationRepository.findAll();
-
+        log.info("Retrieved {} quotations from the database.", quotations.size());
         return quotations;
     }
 
-    private String generateQuoteItemRowsHtml(List<InvoiceData.Item> items, String itemTable) {
+    private String generateQuoteItemRowsHtml(List<InvoiceData.Item> items, String htmlTemplate) {
+        log.debug("Generating item rows HTML for {} quotation items.", items.size());
+        String itemTable = htmlTemplate;
         for (int i = 0; i < 15; i++) {
             int row = i + 1; // because placeholders start from 1
 
@@ -171,28 +179,35 @@ public class QuotationService {
                         .replace("{{item_total_" + row + "}}", "");
             }
         }
-
+        log.debug("Finished generating item rows HTML.");
         return itemTable;
 
     }
 
     public Resource downloadQuotation(long id) {
+        log.info("Attempting to download quotation for ID: {}", id);
         try {
-            log.info("Attempting to download quotation for ID: {}", id);
             String getDirectoryName = quotationRepository.findById(id)
                     .map(Quotation::getCustomerName)
-                    .orElse("unknown_customer")
+                    .orElseThrow(() -> {
+                        log.error("Quotation not found with ID: {} for download.", id);
+                        return new RuntimeException("Quotation not found with ID: " + id);
+                    })
                     .replace("/", "_");
+            log.debug("Found quotation ID: {} belonging to customer: {}", id, getDirectoryName);
+
             String filePathPattern = QUOTATION_DIRECTORY + getDirectoryName + "/EST-" + id + ".pdf";
 
             Path filePath = Paths.get(filePathPattern);
             if (!Files.exists(filePath)) {
+                log.error("Quotation file not found on disk for ID: {}. Path: {}", id, filePathPattern);
                 throw new IOException("Quotation file not found on disk for ID: " + id);
             }
             ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(filePath));
-            log.info("Streaming PDF for invoice ID: {} (Size: {} bytes)", id, resource.contentLength());
+            log.info("Streaming PDF for quotation ID: {} (Size: {} bytes)", id, resource.contentLength());
             return resource;
         } catch (IOException e) {
+            log.error("Error downloading quotation file for ID {}: {}", id, e.getMessage(), e);
             throw new RuntimeException(e);
         }
     }

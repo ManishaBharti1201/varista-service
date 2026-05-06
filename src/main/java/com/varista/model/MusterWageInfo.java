@@ -8,7 +8,7 @@ import lombok.Data;
  * Model representing consolidated data from Muster Register and Wage Register.
  */
 @Data
-public class WageInfo {
+public class MusterWageInfo {
     // Basic Information
     private int serialNo;
     private String aadharNumber;
@@ -33,6 +33,7 @@ public class WageInfo {
     /**
      * Maps day of month (1-31) to attendance status (P, A, L, etc.)
      */
+    private Map<Integer, String> dailyAttendanceStatus; // Added for muster sheet generation
     private double totalDaysWorked;
     private double overTimeHours;
     private double nightHalt; // NH

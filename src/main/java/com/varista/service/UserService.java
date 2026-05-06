@@ -36,21 +36,25 @@ public class UserService {
     private static final long REFRESH_TOKEN_EXPIRY = 86400_000; // 24 hours
 
     public LoginResponse login(LoginRequest loginRequest) throws Exception {
-        log.info("Processing login request for user: {}", loginRequest.getUsername());
+        log.info("Attempting login for user: {}", loginRequest.getUsername());
 
         User user = userRepository.findByEmail(loginRequest.getUsername())
-                .orElseThrow(() -> new Exception("Invalid username or password"));
+                .orElseThrow(() -> {
+                    log.warn("Login failed: User {} not found.", loginRequest.getUsername());
+                    return new Exception("Invalid username or password");
+                });
 
         // Security Note: In production, use BCryptPasswordEncoder.matches(raw, encoded)
         if (!loginRequest.getPassword().equals(user.getPassword())) {
             log.warn("Password mismatch for user: {}", loginRequest.getUsername());
             throw new Exception("Invalid username or password");
         }
-
-        return buildLoginResponse(user);
+        log.info("User {} authenticated successfully.", loginRequest.getUsername());
+        return generateLoginResponse(user);
     }
 
-    private LoginResponse buildLoginResponse(User user) {
+    public LoginResponse generateLoginResponse(User user) {
+        log.info("Generating login response for user ID: {}", user.getId());
         LoginResponse response = new LoginResponse();
         response.setStatus("SUCCESS");
         response.setMessage("Login successful");
@@ -72,8 +76,9 @@ public class UserService {
             response.setTokenExpiryTs(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRY);
             response.setRefreshToken("dummy-refresh-token");
             response.setRefreshTokenExpiryTs(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRY);
+            log.info("Login response generated with token for user ID: {}", user.getId());
         } catch (JOSEException e) {
-            log.error("JWT Generation failed: {}", e.getMessage());
+            log.error("JWT Generation failed for user ID {}: {}", user.getId(), e.getMessage());
             response.setToken("error-generating-token");
         }
 
@@ -81,6 +86,7 @@ public class UserService {
     }
 
     private String generateToken(User user) throws JOSEException {
+        log.info("Generating JWT token for user ID: {}", user.getId());
         JWSSigner signer = new MACSigner(jwtSecret.getBytes(StandardCharsets.UTF_8));
         Date now = new Date();
         Date exp = new Date(now.getTime() + ACCESS_TOKEN_EXPIRY);
@@ -96,27 +102,49 @@ public class UserService {
 
         SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
         signedJWT.sign(signer);
+        log.info("JWT token generated for user ID: {}", user.getId());
         return signedJWT.serialize();
     }
 
     public void resetPassword(String emailId) {
+        log.info("Attempting to reset password for email: {}", emailId);
         userRepository.findByEmail(emailId).ifPresentOrElse(
-                user -> emailService.sendPasswordResetEmail(user.getEmail(), user.getPassword()),
+                user -> {
+                    emailService.sendPasswordResetEmail(user.getEmail(), user.getPassword());
+                    log.info("Password reset email sent to: {}", emailId);
+                },
                 () -> log.error("Reset password failed: Email {} not found", emailId)
         );
     }
 
     @Transactional
     public User updateUser(UserRequest request) {
-        log.info("Update request for User {} starts",request.getId());
+        log.info("Attempting to update user with ID: {}", request.getId());
         return userRepository.findById(request.getId()).map(user -> {
             user.setEmail(request.getEmail());
-            // Ideally encode this
             user.setPhone(request.getPhone());
             user.setAvatar(request.getAvatar());
-            if (!request.getPassword().isEmpty() && !request.getPassword().equals(user.getPassword()))
+            if (!request.getPassword().isEmpty() && !request.getPassword().equals(user.getPassword())) {
                 user.setPassword(request.getPassword());
-            return userRepository.save(user);
-        }).orElseThrow(() -> new RuntimeException("User not found with id: " + request.getId()));
+                log.info("User ID: {} password updated.", user.getId());
+            }
+            User updatedUser = userRepository.save(user);
+            log.info("User ID: {} updated successfully.", updatedUser.getId());
+            return updatedUser;
+        }).orElseThrow(() -> {
+            log.error("User not found with id: {} for update.", request.getId());
+            return new RuntimeException("User not found with id: " + request.getId());
+        });
+    }
+
+
+    @Transactional
+    public User getUser(Long id){
+        log.info("Fetching user with ID: {}", id);
+        return userRepository.findById(id).orElseThrow(()
+                -> {
+            log.error("User not found with id: {}", id);
+            return new RuntimeException("User not found with id: " + id);
+        });
     }
 }
