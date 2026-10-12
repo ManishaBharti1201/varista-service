@@ -48,7 +48,7 @@ public class QuotationService {
     public Quotation createQuotation(QuotationRequest quotationRequest) throws IOException {
         log.info("Initiating quotation creation for customer: {}", quotationRequest.getCustomerName());
         quotationRequest.setId(InvoiceUtils.generate5DigitId());
-        String quotationId = "EST-" + InvoiceUtils.generate5DigitId();
+        String quotationId = "EST-" + quotationRequest.getId();
         Quotation quotationResponse = new Quotation();
         try {
             String htmlTemplate;
@@ -78,18 +78,10 @@ public class QuotationService {
             log.debug("Populated HTML for quotation number: {}", quotationId);
 
             // Path: /app/quotations/{companyId}/INV-{id}.pdf
-            String directory = QUOTATION_DIRECTORY + quotationRequest.getCustomerName().replace("/", "_");
-            // Ensure directory exists
-            Path dirPath = Paths.get(directory);
-            if (!dirPath.toFile().exists()) {
-                log.info("Creating directory for quotations at path: {}", dirPath.toAbsolutePath());
-                Files.createDirectories(dirPath); // Use Files.createDirectories for better practice
-            }
-            String fileName = quotationId + ".pdf";
-            String fullPath = directory + "/" + fileName;
-
-            PdfGenerator.generatePdfFromHtml(populatedHtml, fullPath);
-            log.info("Quotation PDF generated and saved to: {}", fullPath);
+            Path quotationPath = getQuotationPath(quotationRequest.getCustomerName(), quotationRequest.getId());
+            Files.createDirectories(quotationPath.getParent());
+            PdfGenerator.generatePdfFromHtml(populatedHtml, quotationPath.toString());
+            log.info("Quotation PDF generated and saved to: {}", quotationPath);
 
             quotationResponse.setId(quotationRequest.getId());
             quotationResponse.setQuotationNumber(quotationId);
@@ -111,30 +103,23 @@ public class QuotationService {
 
     public void deleteQuotation(Long id) throws IOException {
         log.info("Attempting to delete quotation with ID: {}", id);
-        String getDirectoryName = quotationRepository.findById(id)
-                .map(Quotation::getCustomerName)
-                .orElse("unknown_customer")
-                .replace("/", "_");
+        Quotation quotation = quotationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Quotation not found with ID: " + id));
+        Path quotationPath = getQuotationPath(quotation.getCustomerName(), id);
+        Path dirPath = quotationPath.getParent();
+        String getDirectoryName = dirPath.getFileName().toString();
         log.debug("Found quotation ID: {} belonging to customer: {}", id, getDirectoryName);
 
-        String filePathPattern = QUOTATION_DIRECTORY + "/" + getDirectoryName + "/EST-" + id + ".pdf";
         try {
-            Path dirPath = Paths.get(QUOTATION_DIRECTORY + "/" + getDirectoryName);
+            Files.deleteIfExists(quotationPath);
             if (Files.exists(dirPath)) {
-                long fileCount = Files.list(dirPath).filter(Files::isRegularFile).count();
-                if (fileCount == 1) {
-                    Files.deleteIfExists(Path.of(filePathPattern));
-                    log.info("Deleted quotation file: {}", filePathPattern);
-                    Files.deleteIfExists(dirPath);
-                    log.info("Deleted empty directory: {}", dirPath.toAbsolutePath());
-                } else {
-                    Path filePath = Paths.get(filePathPattern);
-                    Files.deleteIfExists(filePath);
-                    log.info("Deleted quotation file: {}", filePath.toAbsolutePath());
+                try (var files = Files.list(dirPath)) {
+                    if (files.findAny().isEmpty()) {
+                        Files.deleteIfExists(dirPath);
+                    }
                 }
-            } else {
-                log.warn("Quotation directory not found for customer: {}", getDirectoryName);
             }
+            log.info("Deleted quotation file: {}", quotationPath.toAbsolutePath());
         } catch (IOException e) {
             log.error("Error deleting quotation file for ID {}: {}", id, e.getMessage(), e);
             throw e;
@@ -184,23 +169,28 @@ public class QuotationService {
 
     }
 
+    private Path getQuotationPath(String customerName, Long id) {
+        String safeCustomerName = customerName.replaceAll("[\\\\/:*?\"<>|]", "_");
+        if (safeCustomerName.equals(".") || safeCustomerName.equals("..")) {
+            safeCustomerName = "_";
+        }
+        return Paths.get(QUOTATION_DIRECTORY, safeCustomerName, "EST-" + id + ".pdf");
+    }
+
     public Resource downloadQuotation(long id) {
         log.info("Attempting to download quotation for ID: {}", id);
         try {
-            String getDirectoryName = quotationRepository.findById(id)
-                    .map(Quotation::getCustomerName)
+            Quotation quotation = quotationRepository.findById(id)
                     .orElseThrow(() -> {
                         log.error("Quotation not found with ID: {} for download.", id);
                         return new RuntimeException("Quotation not found with ID: " + id);
-                    })
-                    .replace("/", "_");
+                    });
+            String getDirectoryName = quotation.getCustomerName().replaceAll("[\\\\/:*?\"<>|]", "_");
             log.debug("Found quotation ID: {} belonging to customer: {}", id, getDirectoryName);
 
-            String filePathPattern = QUOTATION_DIRECTORY + getDirectoryName + "/EST-" + id + ".pdf";
-
-            Path filePath = Paths.get(filePathPattern);
+            Path filePath = getQuotationPath(quotation.getCustomerName(), id);
             if (!Files.exists(filePath)) {
-                log.error("Quotation file not found on disk for ID: {}. Path: {}", id, filePathPattern);
+                log.error("Quotation file not found on disk for ID: {}. Path: {}", id, filePath);
                 throw new IOException("Quotation file not found on disk for ID: " + id);
             }
             ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(filePath));

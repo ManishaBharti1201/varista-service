@@ -83,6 +83,17 @@ public class AttendanceService {
         }
         log.info("Finished parsing {} attendance records from file.", attendanceList.size());
 
+        if (attendanceList.stream().anyMatch(attendance -> attendance.getAttendDate() == null)) {
+            throw new IOException("Every attendance record must contain a valid attendance date.");
+        }
+        Set<YearMonth> uploadedMonths = attendanceList.stream()
+                .map(attendance -> YearMonth.from(attendance.getAttendDate()))
+                .collect(Collectors.toSet());
+        if (uploadedMonths.size() != 1) {
+            throw new IOException("Upload attendance for exactly one month at a time.");
+        }
+        YearMonth yearMonth = uploadedMonths.iterator().next();
+
         linkUserIdsToAttendance(attendanceList);
         log.info("Linked user IDs to attendance records.");
 
@@ -99,8 +110,7 @@ public class AttendanceService {
         }
 
         // Determine the month for the muster sheet from the first attendance record
-        String month = attendanceList.get(0).getAttendDate().getMonth().toString();
-        YearMonth yearMonth = YearMonth.from(attendanceList.get(0).getAttendDate());
+        String month = yearMonth.getMonth().toString();
 
         log.info("Attempting to create muster sheet for month: {}", month);
         List<MusterWageInfo> musterWageInfos = new ArrayList<>();
@@ -236,12 +246,7 @@ public class AttendanceService {
         double totalWorkingHours = timesheetList.stream()
                 .map(Attendance::getTotalHours)
                 .filter(hours -> hours != null && hours.contains(":"))
-                .mapToDouble(timeStr -> {
-                    String[] parts = timeStr.split(":");
-                    double hours = Double.parseDouble(parts[0]);
-                    double minutes = Double.parseDouble(parts[1]);
-                    return hours + (minutes / 60.0);
-                })
+                .mapToDouble(this::parseWorkingHours)
                 .sum();
 
         response.setEmployeeId(employeeId);
@@ -255,10 +260,32 @@ public class AttendanceService {
         return response;
     }
 
+    private double parseWorkingHours(String timeString) {
+        String[] parts = timeString.trim().split(":");
+        if (parts.length < 2 || parts.length > 3) {
+            log.warn("Ignoring malformed attendance duration '{}'.", timeString);
+            return 0;
+        }
+        try {
+            long hours = Long.parseLong(parts[0]);
+            long minutes = Long.parseLong(parts[1]);
+            long seconds = parts.length == 3 ? Long.parseLong(parts[2]) : 0;
+            if (hours < 0 || minutes < 0 || minutes >= 60 || seconds < 0 || seconds >= 60) {
+                log.warn("Ignoring out-of-range attendance duration '{}'.", timeString);
+                return 0;
+            }
+            return hours + (minutes / 60.0) + (seconds / 3600.0);
+        } catch (NumberFormatException e) {
+            log.warn("Ignoring malformed attendance duration '{}'.", timeString);
+            return 0;
+        }
+    }
+
     private String getWeeklyOffDays(List<Attendance> timesheetList) {
         log.debug("Calculating weekly off days from timesheet list.");
         String weeklyOffs = timesheetList.stream()
-                .filter(attendance -> "O".equalsIgnoreCase(attendance.getStatus()))
+                .filter(attendance -> attendance.getStatus() != null
+                        && "W/O".equalsIgnoreCase(attendance.getStatus().trim().replaceAll("\\s+", "")))
                 .filter(attendance -> attendance.getAttendDate() != null)
                 .map(attendance -> attendance.getAttendDate()
                         .getDayOfWeek()

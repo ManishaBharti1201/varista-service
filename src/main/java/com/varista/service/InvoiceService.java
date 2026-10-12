@@ -91,7 +91,8 @@ public class InvoiceService {
                     .replace("{{taxable_value}}", String.valueOf(invoiceData.getTotalTaxableValue()))
                     .replace("{{tax_rate}}", String.valueOf(invoiceData.getTaxRate()))
                     .replace("{{tax_amount}}", String.valueOf(invoiceData.getTaxAmount()))
-                    .replace("{{igst_roundoff}}", String.valueOf(invoiceData.getTaxAmount()))
+                    // InvoiceData has no round-off value, so render neutral zero rather than repeating tax.
+                    .replace("{{igst_roundoff}}", "0")
                     .replace("{{total_amount}}", String.valueOf(invoiceData.getTotalAmount()))
                     .replace("{{bank_name}}", invoiceData.getBankDetails().getBankName())
                     .replace("{{account_number}}", invoiceData.getBankDetails().getAccNo())
@@ -100,18 +101,12 @@ public class InvoiceService {
 
             log.debug("Populated HTML template for invoice number: {}", invoiceData.getInvoiceNo());
 
-            // Path: /app/invoices/{companyId}/INV-{id}.pdf
-            String directory = INVOICE_DIRECTORY + invoiceData.getBuyer().getName().replace("/", "_");
-            // Ensure directory exists
-            Path dirPath = Paths.get(directory);
-            if (!dirPath.toFile().exists()) {
-                log.info("Creating directory for invoice at path: {}", dirPath.toAbsolutePath());
-                Files.createDirectories(dirPath); // Use Files.createDirectories for better practice
-            }
-            String fileName = invoiceData.getInvoiceNo() + ".pdf";
-            String fullPath = directory + "/" + fileName;
-            PdfGenerator.generatePdfFromHtml(populatedHtml, fullPath);
-            log.info("Invoice PDF generated and saved to: {}", fullPath);
+            Path invoicePath = getInvoicePath(invoiceData.getBuyer().getName(), invoiceData.getInvoiceNo());
+            Path dirPath = invoicePath.getParent();
+            log.info("Creating directory for invoice at path: {}", dirPath.toAbsolutePath());
+            Files.createDirectories(dirPath);
+            PdfGenerator.generatePdfFromHtml(populatedHtml, invoicePath.toString());
+            log.info("Invoice PDF generated and saved to: {}", invoicePath);
 
             invoiceResponse.setInvoiceId(invoiceData.getInvoiceId());
             invoiceResponse.setInvoiceNumber(invoiceData.getInvoiceNo());
@@ -171,29 +166,25 @@ public class InvoiceService {
 
     public void deleteInvoice(Long id) throws IOException {
         log.info("Attempting to delete invoice with ID: {}", id);
-        Long companyId = invoiceRepository.findById(id).map(Invoice::getCompanyId)
+        Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> {
                     log.error("Invoice not found with ID: {} for deletion.", id);
                     return new RuntimeException("Invoice not found with ID: " + id);
                 });
-        String companyName = companyService.getCompanyById(companyId).getName().replace("/", "_");
+        String companyName = companyService.getCompanyById(invoice.getCompanyId()).getName();
         log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
-        String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
+        Path filePath = getInvoicePath(companyName, invoice.getInvoiceNumber());
+        Path dirPath = filePath.getParent();
         try {
-            Path dirPath = Paths.get(INVOICE_DIRECTORY + "/" + companyName);
             if (Files.exists(dirPath)) {
-                long fileCount = Files.list(dirPath).filter(Files::isRegularFile).count();
-                if (fileCount == 1) {
-                    Files.deleteIfExists(Path.of(filePathPattern));
-                    log.info("Deleted invoice file: {}", filePathPattern);
-                    Files.deleteIfExists(dirPath);
-                    log.info("Deleted empty directory: {}", dirPath.toAbsolutePath());
-                } else {
-                    Path filePath = Paths.get(filePathPattern);
-                    Files.deleteIfExists(filePath);
-                    log.info("Deleted invoice file: {}", filePath.toAbsolutePath());
+                Files.deleteIfExists(filePath);
+                try (var files = Files.list(dirPath)) {
+                    if (files.findAny().isEmpty()) {
+                        Files.deleteIfExists(dirPath);
+                    }
                 }
+                log.info("Deleted invoice file: {}", filePath.toAbsolutePath());
             } else {
                 log.warn("Invoice directory not found for company: {}", companyName);
             }
@@ -215,22 +206,18 @@ public class InvoiceService {
     public Resource downloadInvoice(String id) throws IOException {
         log.info("Attempting to download invoice with ID: {}", id);
         try {
-            Long companyId = invoiceRepository.findById(Long.valueOf(id))
-                    .map(Invoice::getCompanyId)
+            Invoice invoice = invoiceRepository.findById(Long.valueOf(id))
                     .orElseThrow(() -> {
                         log.error("Invoice not found with ID: {} for download.", id);
                         return new RuntimeException("Invoice not found with ID: " + id);
                     });
 
-            String companyName = companyService.getCompanyById(companyId)
-                    .getName().replace("/", "_");
+            String companyName = companyService.getCompanyById(invoice.getCompanyId()).getName();
             log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
-            String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
-
-            Path filePath = Paths.get(filePathPattern);
+            Path filePath = getInvoicePath(companyName, invoice.getInvoiceNumber());
             if (!Files.exists(filePath)) {
-                log.error("Invoice file not found on disk for ID: {}. Path: {}", id, filePathPattern);
+                log.error("Invoice file not found on disk for ID: {}. Path: {}", id, filePath);
                 throw new IOException("Invoice file not found on disk for ID: " + id);
             }
             ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(filePath));
@@ -240,6 +227,15 @@ public class InvoiceService {
             log.error("Error downloading invoice file for ID {}: {}", id, e.getMessage(), e);
             throw e;
         }
+    }
+
+    private Path getInvoicePath(String companyName, String invoiceNumber) {
+        String safeCompanyName = companyName.replaceAll("[\\\\/:*?\"<>|]", "_");
+        if (safeCompanyName.equals(".") || safeCompanyName.equals("..")) {
+            safeCompanyName = "_";
+        }
+        String safeInvoiceNumber = invoiceNumber.replaceAll("[\\\\/:*?\"<>|]", "_");
+        return Paths.get(INVOICE_DIRECTORY, safeCompanyName, safeInvoiceNumber + ".pdf");
     }
 
     public InvoiceResponse markAsPaid(Long id) {
@@ -278,12 +274,12 @@ public class InvoiceService {
                     });
 
             String companyName = companyService.getCompanyById(invoice.getCompanyId())
-                    .getName().replaceAll("[\\\\/:*?\"<>|]", "_"); // Robust filename sanitization
+                    .getName();
             log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
             // 2. Define Pathing
-            Path directoryPath = Paths.get(INVOICE_DIRECTORY, companyName);
-            Path filePath = directoryPath.resolve("INV-" + id + ".pdf");
+            Path filePath = getInvoicePath(companyName, invoice.getInvoiceNumber());
+            Path directoryPath = filePath.getParent();
             log.debug("Target file path for replacement: {}", filePath);
 
             // 3. Ensure directory exists
@@ -293,7 +289,9 @@ public class InvoiceService {
             }
 
             // 4. Atomic-style Replacement:
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            try (var inputStream = file.getInputStream()) {
+                Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
+            }
             log.info("Invoice file for ID: {} replaced successfully at: {}", id, filePath);
 
             // 5. Update metadata if necessary and return response
