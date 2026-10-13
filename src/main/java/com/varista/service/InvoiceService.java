@@ -1,5 +1,6 @@
 package com.varista.service;
 
+import com.varista.constant.ApplicationConstants;
 import com.varista.entity.Company;
 import com.varista.entity.Invoice;
 import com.varista.model.InvoiceData;
@@ -42,8 +43,6 @@ public class InvoiceService {
     @Autowired
     InvoiceRepository invoiceRepository;
 
-    @Value("${invoice.directory}")
-    public String INVOICE_DIRECTORY;
 
 
     public InvoiceResponse createInvoice(InvoiceRequest invoiceRequest) throws IOException {
@@ -101,7 +100,7 @@ public class InvoiceService {
             log.debug("Populated HTML template for invoice number: {}", invoiceData.getInvoiceNo());
 
             // Path: /app/invoices/{companyId}/INV-{id}.pdf
-            String directory = INVOICE_DIRECTORY + invoiceData.getBuyer().getName().replace("/", "_");
+            String directory = ApplicationConstants.INVOICE_DIRECTORY + invoiceData.getBuyer().getName().replace("/", "_");
             // Ensure directory exists
             Path dirPath = Paths.get(directory);
             if (!dirPath.toFile().exists()) {
@@ -179,9 +178,9 @@ public class InvoiceService {
         String companyName = companyService.getCompanyById(companyId).getName().replace("/", "_");
         log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
-        String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
+        String filePathPattern = ApplicationConstants.INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
         try {
-            Path dirPath = Paths.get(INVOICE_DIRECTORY + "/" + companyName);
+            Path dirPath = Paths.get(ApplicationConstants.INVOICE_DIRECTORY + companyName);
             if (Files.exists(dirPath)) {
                 long fileCount = Files.list(dirPath).filter(Files::isRegularFile).count();
                 if (fileCount == 1) {
@@ -226,7 +225,7 @@ public class InvoiceService {
                     .getName().replace("/", "_");
             log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
-            String filePathPattern = INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
+            String filePathPattern = ApplicationConstants.INVOICE_DIRECTORY + companyName + "/INV-" + id + ".pdf";
 
             Path filePath = Paths.get(filePathPattern);
             if (!Files.exists(filePath)) {
@@ -282,7 +281,7 @@ public class InvoiceService {
             log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
 
             // 2. Define Pathing
-            Path directoryPath = Paths.get(INVOICE_DIRECTORY, companyName);
+            Path directoryPath = Paths.get(ApplicationConstants.INVOICE_DIRECTORY ,companyName);
             Path filePath = directoryPath.resolve("INV-" + id + ".pdf");
             log.debug("Target file path for replacement: {}", filePath);
 

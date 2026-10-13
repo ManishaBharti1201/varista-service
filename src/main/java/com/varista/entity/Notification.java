@@ -12,4 +12,5 @@ public class Notification {
     private String description;
     private String status;
     private String createDate;
+
 }

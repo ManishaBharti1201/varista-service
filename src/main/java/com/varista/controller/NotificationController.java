@@ -93,4 +93,42 @@ public class NotificationController {
         log.info("Successfully retrieved {} notifications.", notifications.size());
         return ResponseEntity.ok(notifications);
     }
+
+    @PostMapping("/{id}/read")
+    @Operation(summary = "Mark notification as read by ID", description = "Marks a specific notification as read")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Notification marked as read successfully"),
+            @ApiResponse(responseCode = "404", description = "Notification not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Void> markNotificationAsRead(@Parameter(description = "ID of the notification to mark as read", example = "1")
+                                                       @PathVariable Integer id) {
+        log.info("Received request to mark notification ID: {} as read", id);
+        try {
+            notificationService.markAsRead(id);
+            log.info("Notification ID: {} marked as read successfully", id);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Error marking notification ID: {} as read: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/read-all")
+    @Operation(summary = "Mark all notifications as read", description = "Marks all existing notifications as read")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "All notifications marked as read successfully"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Void> markAllNotificationsAsRead() {
+        log.info("Received request to mark all notifications as read");
+        try {
+            notificationService.markAllAsRead();
+            log.info("All notifications marked as read successfully");
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Error marking all notifications as read: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

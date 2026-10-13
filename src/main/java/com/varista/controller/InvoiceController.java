@@ -32,9 +32,6 @@ import java.util.List;
 @Tag(name = "Invoice Management", description = "Endpoints for generating, downloading, and deleting invoices")
 public class InvoiceController {
 
-    @Value("${invoice.directory}")
-    public String INVOICE_DIRECTORY;
-
     private final InvoiceService invoiceService;
 
     public InvoiceController(InvoiceService invoiceService) {

@@ -1,12 +1,15 @@
 package com.varista.utils;
 
+import com.varista.constant.ApplicationConstants;
+import com.varista.entity.Blob;
 import com.varista.model.MusterWageInfo;
-import com.varista.entity.Blob; // Import Blob entity
+
 import com.varista.repository.BlobRepository; // Import BlobRepository
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired; // Import Autowired
+import org.springframework.beans.factory.annotation.Value; // Import Value
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -178,7 +181,7 @@ public class ExcelUtils {
             // persist and return
             workbook.write(out);
             try {
-                Path directory = Paths.get("./Monthly_Sheet");
+                Path directory = Paths.get(ApplicationConstants.MASTER_REGISTER_DIRECTORY); // Use injected property
                 Files.createDirectories(directory);
                 String fileName = attendanceData.get(0).getSubContractorName() + "_" + ym.toString() + ".xlsx";
                 Path filePath = directory.resolve(fileName);

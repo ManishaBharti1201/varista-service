@@ -1,5 +1,6 @@
 package com.varista.mapper;
 
+import com.varista.constant.ApplicationConstants;
 import com.varista.entity.Company;
 import com.varista.entity.Invoice;
 import com.varista.entity.Quotation;
@@ -23,13 +24,6 @@ import java.util.stream.IntStream;
 public class QuotationMapper {
 
     private static final Logger log = LoggerFactory.getLogger(QuotationMapper.class);
-
-    @Value("${varista.bankName}")
-    private String bankName;
-    @Value("${varista.accountNumber}")
-    private String accountNumber;
-    @Value("${varista.ifsc}") private String ifsc;
-
 
     public InvoiceData mapInvoiceRequestToInvoiceData(InvoiceRequest invoiceRequest, Company buyerInfo) {
         log.debug("mapInvoiceRequestToInvoiceData - start: buyerId={}, itemsCount={}",
@@ -95,12 +89,12 @@ public class QuotationMapper {
 
         // Map bank details
         InvoiceData.BankDetails bankDetails = new InvoiceData.BankDetails();
-        bankDetails.setBankName(bankName);
-        bankDetails.setAccNo(accountNumber);
-        bankDetails.setIfsc(ifsc);
+        bankDetails.setBankName(ApplicationConstants.VARISTA_BANK_NAME);
+        bankDetails.setAccNo(ApplicationConstants.VARISTA_ACCOUNT_NUMBER);
+        bankDetails.setIfsc(ApplicationConstants.VARISTA_IFSC);
         invoiceData.setBankDetails(bankDetails);
 
-        String maskedAcc = accountNumber == null ? "null" : accountNumber.length() > 4 ? "****" + accountNumber.substring(accountNumber.length() - 4) : "****";
+        String maskedAcc = bankDetails.getAccNo() == null ? "null" : bankDetails.getAccNo().length() > 4 ? "****" + bankDetails.getAccNo().substring(bankDetails.getAccNo().length() - 4) : "****";
         log.info("Created InvoiceData: invoiceNo={}, buyerId={}, items={}, totalTaxable={}, taxRate={}, taxAmount={}, totalAmount={}, bank={}/{}",
                 invoiceData.getInvoiceNo(),
                 buyerInfo != null ? buyerInfo.getId() : null,
@@ -109,7 +103,7 @@ public class QuotationMapper {
                 invoiceData.getTaxRate(),
                 invoiceData.getTaxAmount(),
                 invoiceData.getTotalAmount(),
-                bankName,
+                bankDetails.getBankName(),
                 maskedAcc
         );
 

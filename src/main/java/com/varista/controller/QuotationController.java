@@ -35,9 +35,6 @@ import java.util.List;
 @Tag(name = "Quotation Management", description = "Endpoints for generating, downloading, and deleting quotations")
 public class QuotationController {
 
-    @Value("${quotation.directory}")
-    public String INVOICE_DIRECTORY;
-
     private final QuotationService quotationService;
 
     public QuotationController(QuotationService quotationService) {

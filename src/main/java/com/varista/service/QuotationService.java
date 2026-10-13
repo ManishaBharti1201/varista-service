@@ -1,5 +1,6 @@
 package com.varista.service;
 
+import com.varista.constant.ApplicationConstants;
 import com.varista.entity.Company;
 import com.varista.entity.Invoice;
 import com.varista.entity.Quotation;
@@ -41,9 +42,6 @@ public class QuotationService {
     @Autowired
     QuotationRepository quotationRepository;
 
-    @Value("${quotation.directory}")
-    public String QUOTATION_DIRECTORY;
-
 
     public Quotation createQuotation(QuotationRequest quotationRequest) throws IOException {
         log.info("Initiating quotation creation for customer: {}", quotationRequest.getCustomerName());
@@ -78,7 +76,7 @@ public class QuotationService {
             log.debug("Populated HTML for quotation number: {}", quotationId);
 
             // Path: /app/quotations/{companyId}/INV-{id}.pdf
-            String directory = QUOTATION_DIRECTORY + quotationRequest.getCustomerName().replace("/", "_");
+            String directory = ApplicationConstants.QUOTATION_DIRECTORY + quotationRequest.getCustomerName().replace("/", "_");
             // Ensure directory exists
             Path dirPath = Paths.get(directory);
             if (!dirPath.toFile().exists()) {
@@ -117,9 +115,9 @@ public class QuotationService {
                 .replace("/", "_");
         log.debug("Found quotation ID: {} belonging to customer: {}", id, getDirectoryName);
 
-        String filePathPattern = QUOTATION_DIRECTORY + "/" + getDirectoryName + "/EST-" + id + ".pdf";
+        String filePathPattern = ApplicationConstants.QUOTATION_DIRECTORY + getDirectoryName + "/EST-" + id + ".pdf";
         try {
-            Path dirPath = Paths.get(QUOTATION_DIRECTORY + "/" + getDirectoryName);
+            Path dirPath = Paths.get(ApplicationConstants.QUOTATION_DIRECTORY + getDirectoryName);
             if (Files.exists(dirPath)) {
                 long fileCount = Files.list(dirPath).filter(Files::isRegularFile).count();
                 if (fileCount == 1) {
@@ -196,7 +194,7 @@ public class QuotationService {
                     .replace("/", "_");
             log.debug("Found quotation ID: {} belonging to customer: {}", id, getDirectoryName);
 
-            String filePathPattern = QUOTATION_DIRECTORY + getDirectoryName + "/EST-" + id + ".pdf";
+            String filePathPattern = ApplicationConstants.QUOTATION_DIRECTORY + getDirectoryName + "/EST-" + id + ".pdf";
 
             Path filePath = Paths.get(filePathPattern);
             if (!Files.exists(filePath)) {
