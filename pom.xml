@@ -25,7 +25,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-            <version>3.1.4</version>
         </dependency>
         <dependency>
             <groupId>org.hibernate.orm</groupId>
@@ -101,7 +100,7 @@
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
-            <version>9.31</version>
+            <version>10.0.2</version>
         </dependency>
 
         <!-- Apache POI for Excel handling -->

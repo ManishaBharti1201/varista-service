@@ -3,6 +3,7 @@ package com.varista.utils;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Component
 public class IndianCurrencyConverter {
@@ -18,18 +19,22 @@ public class IndianCurrencyConverter {
             return "";
         }
 
-        if (amount.compareTo(BigDecimal.ZERO) == 0) {
+        BigDecimal roundedAmount = amount.setScale(2, RoundingMode.HALF_UP);
+        if (roundedAmount.compareTo(BigDecimal.ZERO) == 0) {
             return "Zero Rupees Only";
         }
 
-        // Split amount into whole and decimal parts
-        BigDecimal wholePart = amount.setScale(0, BigDecimal.ROUND_DOWN);
-        BigDecimal decimalPart = amount.remainder(BigDecimal.ONE).multiply(new BigDecimal(100)).setScale(0, BigDecimal.ROUND_HALF_UP);
+        BigDecimal wholePart = roundedAmount.setScale(0, RoundingMode.DOWN);
+        BigDecimal decimalPart = roundedAmount.remainder(BigDecimal.ONE).movePointRight(2);
 
         StringBuilder result = new StringBuilder();
 
         // Handle whole part
-        result.append(convertWholeNumberToIndianWords(wholePart));
+        if (wholePart.compareTo(BigDecimal.ZERO) == 0) {
+            result.append("Zero");
+        } else {
+            result.append(convertWholeNumberToIndianWords(wholePart));
+        }
         result.append(" Rupees");
 
         // Handle decimal part

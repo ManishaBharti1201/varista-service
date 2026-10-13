@@ -29,7 +29,7 @@ public class UserService {
     @Autowired
     private EmailUtils emailService;
 
-    @Value("${security.jwt.secret:change-it-in-production-at-least-32-chars}")
+    @Value("${security.jwt.secret}")
     private String jwtSecret;
 
     private static final long ACCESS_TOKEN_EXPIRY = 3600_000; // 1 hour

@@ -201,7 +201,8 @@ public class ExcelUtils {
                 log.info("Blob record saved for file: {}", fileName);
 
             } catch (Exception ex) {
-                log.warn("Failed to persist generated Excel file or save blob record: {}", ex.getMessage());
+                log.error("Failed to persist generated Excel file or save its blob record.", ex);
+                throw new IOException("Failed to persist generated Excel file or save its blob record.", ex);
             }
             return new ByteArrayInputStream(out.toByteArray());
         }
@@ -239,13 +240,10 @@ public class ExcelUtils {
 
         // Precompute which columns correspond to Sundays in the provided YearMonth
         Set<Integer> sundayColumns = new HashSet<>();
-        for (int day = 1; day <= 31; day++) {
-            try {
-                DayOfWeek dow = ym.atDay(day).getDayOfWeek();
-                if (dow == DayOfWeek.SUNDAY) {
-                    sundayColumns.add(dayStartCol + (day - 1));
-                }
-            } catch (Exception ignored) {
+        for (int day = 1; day <= ym.lengthOfMonth(); day++) {
+            DayOfWeek dow = ym.atDay(day).getDayOfWeek();
+            if (dow == DayOfWeek.SUNDAY) {
+                sundayColumns.add(dayStartCol + (day - 1));
             }
         }
 
@@ -347,7 +345,7 @@ public class ExcelUtils {
         }
 
         // Define header row and columns for the wage sheet
-        int headerRowIndex = 9;
+        int headerRowIndex = 8;
         int startDataRow = 9;
         
         // Column indices for sums
@@ -376,15 +374,18 @@ public class ExcelUtils {
         monthYearCell.setCellValue(ym.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
         monthYearCell.setCellStyle(headerStyle); // Use header style for month/year
 
-        // --- Apply Header Style to existing header row (row 1, index 0) ---
+        // Append the calculated salary components after the existing wage-register columns.
         Row headerRow = sheet.getRow(headerRowIndex);
         if (headerRow == null) headerRow = sheet.createRow(headerRowIndex);
 
-        // Assuming a fixed number of header columns based on the previous implementation
-        int lastHeaderCol = 29;
+        int lastHeaderCol = 34;
         for (int c = 0; c <= lastHeaderCol; c++) {
             Cell hcell = headerRow.getCell(c);
             if (hcell == null) hcell = headerRow.createCell(c);
+            if (c == 31) hcell.setCellValue("INTERIM BONUS");
+            if (c == 32) hcell.setCellValue("WASHING ALLOWANCE");
+            if (c == 33) hcell.setCellValue("SPECIAL ALLOWANCE");
+            if (c == 34) hcell.setCellValue("ADVANCE RECOVERY");
             // Preserve existing cell value, just apply style
             headerStyle.setFillBackgroundColor(IndexedColors.WHITE.getIndex());
             hcell.setCellStyle(headerStyle);
@@ -411,6 +412,10 @@ public class ExcelUtils {
         double totalOtAmount = 0;
         double totalNhAmount = 0;
         double totalHra = 0;
+        double totalInterimBonus = 0;
+        double totalWashingAllowance = 0;
+        double totalSpecialAllowance = 0;
+        double totalAdvanceRecovery = 0;
         double totalGrossWage = 0;
         double totalPfDeduction = 0;
         double totalEsiDeduction = 0; 
@@ -422,7 +427,10 @@ public class ExcelUtils {
 
 
         for (MusterWageInfo entry : data) {
-            Row row = sheet.createRow(rowNum);
+            Row row = sheet.getRow(rowNum);
+            if (row == null) {
+                row = sheet.createRow(rowNum);
+            }
             int col = 0;
             setCellWithStyle(row, col++, entry.getSerialNo(), dataStyle);
             setCellWithStyle(row, col++, entry.getAadharNumber(), dataStyle);
@@ -501,22 +509,9 @@ public class ExcelUtils {
                 setCellWithStyle(row, col++, "", dataStyle);
             }
 
-            // Assuming getEsiDeduction() exists for ESIC deduction.
-            // If MusterWageInfo does not have a getEsiDeduction() method, this will need adjustment.
-            // For now, I'll assume it exists and returns a Double.
-            Double esiDeductionValue = null;
-            try {
-                java.lang.reflect.Method getEsiDeductionMethod = entry.getClass().getMethod("getEsiDeduction");
-                esiDeductionValue = (Double) getEsiDeductionMethod.invoke(entry);
-            } catch (NoSuchMethodException e) {
-                log.warn("MusterWageInfo does not have getEsiDeduction() method. ESI Deduction will be 0.0.");
-            } catch (Exception e) {
-                log.warn("Error invoking getEsiDeduction() on MusterWageInfo: {}", e.getMessage());
-            }
-
-            if (esiDeductionValue != null) {
-                totalEsiDeduction += esiDeductionValue;
-                setCellWithStyle(row, col++, esiDeductionValue, dataStyle);
+            if (entry.getEsicDeduction() != 0) {
+                totalEsiDeduction += entry.getEsicDeduction();
+                setCellWithStyle(row, col++, entry.getEsicDeduction(), dataStyle);
             } else {
                 setCellWithStyle(row, col++, "", dataStyle);
             }
@@ -562,6 +557,15 @@ public class ExcelUtils {
             setCellWithStyle(row, col++, entry.getSubContractorName(), dataStyle);
             setCellWithStyle(row, col++, entry.getRemarks(), dataStyle);
 
+            totalInterimBonus += entry.getInterimBonus();
+            setCellWithStyle(row, col++, entry.getInterimBonus(), dataStyle);
+            totalWashingAllowance += entry.getWashingAllowance();
+            setCellWithStyle(row, col++, entry.getWashingAllowance(), dataStyle);
+            totalSpecialAllowance += entry.getSpecialAllowance();
+            setCellWithStyle(row, col++, entry.getSpecialAllowance(), dataStyle);
+            totalAdvanceRecovery += entry.getAdvanceRecovery();
+            setCellWithStyle(row, col++, entry.getAdvanceRecovery(), dataStyle);
+
             writtenRows++;
             rowNum++;
         }
@@ -587,6 +591,10 @@ public class ExcelUtils {
             setCellWithStyle(totalRow, colOtherDeductions, totalOtherDeductions, totalRowStyle);
             setCellWithStyle(totalRow, colTotalDeductions, totalTotalDeductions, totalRowStyle);
             setCellWithStyle(totalRow, colNetWage, totalNetWage, totalRowStyle);
+            setCellWithStyle(totalRow, 31, totalInterimBonus, totalRowStyle);
+            setCellWithStyle(totalRow, 32, totalWashingAllowance, totalRowStyle);
+            setCellWithStyle(totalRow, 33, totalSpecialAllowance, totalRowStyle);
+            setCellWithStyle(totalRow, 34, totalAdvanceRecovery, totalRowStyle);
 
             // Ensure all cells in the total row up to lastHeaderCol have borders
             for (int c = 0; c <= lastHeaderCol; c++) {
@@ -632,7 +640,9 @@ public class ExcelUtils {
         if (cell == null) return "";
         return switch (cell.getCellType()) {
             case STRING -> cell.getStringCellValue().trim();
-            case NUMERIC -> String.valueOf((int) cell.getNumericCellValue());
+            case NUMERIC -> org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)
+                    ? new DataFormatter(Locale.ENGLISH).formatCellValue(cell).trim()
+                    : String.valueOf((int) cell.getNumericCellValue());
             case FORMULA -> {
                 try {
                     // Attempt to evaluate formula as numeric

@@ -1,7 +1,6 @@
 package com.varista.entity;
 
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import lombok.Data;
 import org.hibernate.annotations.ColumnDefault;
@@ -34,4 +33,12 @@ public class Employee {
     private LocalDate createdAt;
     private String weeklyDaysOff;
     private String category;
+    private BigDecimal basicSalary;
+    private BigDecimal hra;
+    private BigDecimal interimBonus;
+    private BigDecimal washingAllowance;
+    private BigDecimal specialAllowance;
+    private BigDecimal lwfDeduction;
+    private BigDecimal advanceRecovery;
+    private BigDecimal otherDeductions;
 }

@@ -2,192 +2,234 @@ package com.varista.service;
 
 import com.varista.entity.Attendance;
 import com.varista.entity.Employee;
-import com.varista.model.MusterWageInfo; // Changed import from MusterSheetInfo
+import com.varista.model.MusterWageInfo;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 
 @Component
 @Slf4j
 public class MusterDataCalculator {
 
-    @Autowired
-    EmployeeService employeeService;
+    private static final int SHIFT_HOURS = 8;
+    private static final int BREAK_HOURS = 1;
+    private static final Set<String> ABSENCE_STATUSES = Set.of("A", "AB");
+    private static final Set<String> NATIONAL_HOLIDAY_STATUSES = Set.of("N/H", "NH", "PH");
+    private static final DateTimeFormatter[] TIME_FORMATTERS = {
+            DateTimeFormatter.ISO_LOCAL_TIME,
+            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("h:mm:ss a", Locale.ENGLISH)
+    };
 
-    public void calculateMusterSheetData(List<Attendance> attendanceList, List<MusterWageInfo> musterWageInfos) { // Changed List<MusterSheetInfo> to List<MusterWageInfo>
+    private final EmployeeService employeeService;
+    private final PayrollCalculator payrollCalculator;
+    private final double partialDayCredit;
+    private final double exceptionDayCredit;
+
+    public MusterDataCalculator(
+            EmployeeService employeeService,
+            PayrollCalculator payrollCalculator,
+            @Value("${payroll.attendance.partial-day-credit:0.0}") double partialDayCredit,
+            @Value("${payroll.attendance.exception-day-credit:0.0}") double exceptionDayCredit) {
+        if (!Double.isFinite(partialDayCredit) || partialDayCredit < 0 || partialDayCredit > 1
+                || !Double.isFinite(exceptionDayCredit) || exceptionDayCredit < 0 || exceptionDayCredit > 1) {
+            throw new IllegalArgumentException("Attendance day credits must be between 0 and 1.");
+        }
+        this.employeeService = employeeService;
+        this.payrollCalculator = payrollCalculator;
+        this.partialDayCredit = partialDayCredit;
+        this.exceptionDayCredit = exceptionDayCredit;
+    }
+
+    public void calculateMusterSheetData(List<Attendance> attendanceList, List<MusterWageInfo> musterWageInfos) {
         log.info("Starting muster sheet data calculation for {} attendance records.", attendanceList.size());
-        try {
-            List<Employee> employeeList = employeeService.getAll();
-            log.debug("Retrieved {} employees for muster sheet calculation.", employeeList.size());
-
-            final int[] count = {0};
-            employeeList.forEach(employee -> {
-                log.debug("Processing employee: {} (ID: {})", employee.getFirstName() + " " + employee.getLastName(), employee.getId());
-                MusterWageInfo musterWageInfo = new MusterWageInfo(); // Changed MusterSheetInfo to MusterWageInfo
-
-                // Map Employee data to MusterWageInfo
-                musterWageInfo.setSerialNo(++count[0]);
-                musterWageInfo.setEmployeeName(employee.getFirstName() + " " + employee.getLastName());
-                musterWageInfo.setFatherName(employee.getFatherName()); // Assuming Employee has getFatherName()
-                musterWageInfo.setGender(employee.getGender()); // Assuming Employee has getGender()
-                musterWageInfo.setDesignation(employee.getRole());
-                musterWageInfo.setCategory(employee.getCategory()); // Assuming Employee has getCategory()
-
-                if (employee.getDob() != null) {
-                    musterWageInfo.setDateOfBirth(employee.getDob());
-                } else {
-                    log.warn("Employee ID {} has no Date of Birth.", employee.getId());
-                }
-
-                if (employee.getAdhaar() != null) {
-                    musterWageInfo.setAadharNumber(String.valueOf(employee.getAdhaar()));
-                } else {
-                    log.warn("Employee ID {} has no Aadhar Number.", employee.getId());
-                }
-
-                if (employee.getEip() != null) {
-                    musterWageInfo.setEipId(employee.getEip().toString());
-                } else {
-                    log.warn("Employee ID {} has no EIP.", employee.getId());
-                }
-
-                if (employee.getJoiningDate() != null) {
-                    musterWageInfo.setDateOfJoining(employee.getJoiningDate());
-                } else {
-                    log.warn("Employee ID {} has no Joining Date.", employee.getId());
-                }
-
-                // Statutory Identifiers (assuming Employee has these fields)
-                musterWageInfo.setUanNo(String.valueOf(employee.getUan())); // Assuming Employee has getUanNo()
-                musterWageInfo.setEsiNo(String.valueOf(employee.getEsic())); // Assuming Employee has getEsiNo()
-
-                // Attendance/Muster Specifics
-                Map<Integer, String> dailyAttendanceStatus = new HashMap<>(); // Changed timesheet to dailyAttendanceStatus
-                attendanceList.stream()
-                        .filter(attendance -> Objects.equals(attendance.getMasterEmployeeId(), employee.getId()))
-                        .forEach(result -> {
-                            dailyAttendanceStatus.put(result.getAttendDate().getDayOfMonth(), result.getStatus());
-                        });
-                musterWageInfo.setDailyAttendanceStatus(dailyAttendanceStatus); // Mapped to new field
-                musterWageInfo.setWorkingHours("Day Shift"); // Default value
-                musterWageInfo.setInterval("1 Hr");     // Default value
-
-                // Financial/Wage Details (initialized to 0.0 or null as no source in current context)
-                musterWageInfo.setDailyWage(0.0);
-                musterWageInfo.setBasicWages(0.0);
-                musterWageInfo.setOtAmount(0.0);
-                musterWageInfo.setNhAmount(0.0);
-                musterWageInfo.setHra(0.0);
-                musterWageInfo.setGrossWage(0.0);
-                musterWageInfo.setPfDeduction(0.0);
-                musterWageInfo.setEsicDeduction(0.0);
-                musterWageInfo.setPtDeduction(0.0);
-                musterWageInfo.setLwfDeduction(0.0);
-                musterWageInfo.setOtherDeductions(0.0);
-                musterWageInfo.setTotalDeductions(0.0);
-                musterWageInfo.setNetWage(0.0);
-                musterWageInfo.setDateOfPayment(null);
-                musterWageInfo.setJobCode(null);
-                musterWageInfo.setRemarks(null);
-                musterWageInfo.setSubContractorName("Varista Industrial Solutions"); // Mapped contractorName to subContractorName
-
-                calculateTotalOTAndHNDays(attendanceList.stream()
-                        .filter(attendance -> Objects.equals(attendance.getMasterEmployeeId(), employee.getId()))
-                        .toList(), musterWageInfo); // Changed MusterSheetInfo to MusterWageInfo
-
-                musterWageInfos.add(musterWageInfo); // Changed musterSheetInfos to musterWageInfos
-                log.debug("MusterWageInfo created for employee: {}", musterWageInfo.getEmployeeName());
-            });
-
-            // Re-index serialNo after all items are added
-            for (int i = 0; i < musterWageInfos.size(); i++) {
-                musterWageInfos.get(i).setSerialNo(i + 1);
-            }
-            log.info("Muster sheet data calculation completed. Generated {} muster wage infos.", musterWageInfos.size());
-        } catch (Exception e) {
-            log.error("Error calculating muster sheet data: {}", e.getMessage(), e);
-            throw e; // Re-throw to ensure upstream handling
+        YearMonth attendanceMonth = attendanceList.stream()
+                .filter(attendance -> attendance.getAttendDate() != null)
+                .map(attendance -> YearMonth.from(attendance.getAttendDate()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Attendance records must include a valid date."));
+        if (attendanceList.stream()
+                .filter(attendance -> attendance.getAttendDate() != null)
+                .anyMatch(attendance -> !YearMonth.from(attendance.getAttendDate()).equals(attendanceMonth))) {
+            throw new IllegalArgumentException("A muster sheet can only be generated from one month of attendance.");
         }
-    }
-
-    private void calculateTotalOTAndHNDays(List<Attendance> attendanceStream, MusterWageInfo musterWageInfo) { // Changed MusterSheetInfo to MusterWageInfo
-        log.debug("Calculating total OT and NH days for employee: {}", musterWageInfo.getEmployeeName());
-        double totalDaysWorked = 0; // Changed to double to match MusterWageInfo
-        double overTimeHours = 0; // Changed to double to match MusterWageInfo
-        double nightHalt = 0; // Changed to double to match MusterWageInfo
-
-        for (Attendance dayEntry : attendanceStream) {
-            String status = dayEntry.getStatus();
-            log.trace("Processing attendance entry for date {} with status {}", dayEntry.getAttendDate(), status);
-
-            // 1. Calculate Total Days Worked
-            if (status != null && status.matches("P|AP|NH|PH|OT.*")) {
-                totalDaysWorked++;
-            }
-
-            // 2. Calculate OT Hours for working days
-            if (status != null && (status.contains("OT") || status.equals("AP") || status.equals("P"))) {
-                double dailyOt = calculateDailyOT(dayEntry);
-                overTimeHours += dailyOt;
-                log.trace("Daily OT for {} is {}. Current total OT: {}", dayEntry.getAttendDate(), dailyOt, overTimeHours);
-            }
-
-            // 3. Calculate NH Hours (Holiday Pay logic)
-            if (status != null && (status.equals("NH") || status.equals("PH"))) {
-                nightHalt += 1.0;
-                log.trace("NH/PH day for {}. Current total NH: {}", dayEntry.getAttendDate(), nightHalt);
+        Map<Long, List<Attendance>> attendanceByEmployee = new HashMap<>();
+        for (Attendance attendance : attendanceList) {
+            if (attendance.getMasterEmployeeId() != null) {
+                attendanceByEmployee.computeIfAbsent(attendance.getMasterEmployeeId(), ignored -> new java.util.ArrayList<>())
+                        .add(attendance);
             }
         }
+        List<Employee> employees = employeeService.getAll();
 
-        musterWageInfo.setTotalDaysWorked(totalDaysWorked); // Mapped to new field
-        musterWageInfo.setOverTimeHours(overTimeHours);     // Mapped to new field
-        musterWageInfo.setNightHalt(nightHalt);             // Mapped to new field
-        log.debug("Finished calculating OT and NH days for {}. Total Days: {}, OT Hours: {}, NH Hours: {}",
-                musterWageInfo.getEmployeeName(), totalDaysWorked, overTimeHours, nightHalt);
+        int serialNo = musterWageInfos.size() + 1;
+        for (Employee employee : employees) {
+            MusterWageInfo info = new MusterWageInfo();
+            info.setSerialNo(serialNo++);
+            info.setEmployeeName(joinName(employee.getFirstName(), employee.getLastName()));
+            info.setFatherName(employee.getFatherName());
+            info.setGender(employee.getGender());
+            info.setDesignation(employee.getRole());
+            info.setCategory(employee.getCategory());
+            info.setDateOfBirth(employee.getDob());
+            info.setDateOfJoining(employee.getJoiningDate());
+            info.setAadharNumber(identifier(employee.getAdhaar()));
+            info.setEipId(identifier(employee.getEip()));
+            info.setUanNo(identifier(employee.getUan()));
+            info.setEsiNo(identifier(employee.getEsic()));
+            info.setWorkingHours("Day Shift");
+            info.setInterval("1 Hr");
+            info.setSubContractorName("Varista Industrial Solutions");
+
+            List<Attendance> employeeAttendance = attendanceByEmployee.getOrDefault(employee.getId(), List.of());
+            Map<LocalDate, Attendance> attendanceByDate = uniqueAttendanceByDate(employeeAttendance, employee);
+            Map<Integer, String> dailyStatus = new HashMap<>();
+            attendanceByDate.forEach((date, entry) -> dailyStatus.put(date.getDayOfMonth(), entry.getStatus()));
+            info.setDailyAttendanceStatus(dailyStatus);
+
+            calculateAttendanceTotals(attendanceByDate.values().stream().toList(), info);
+            if (info.getTotalDaysWorked() > 0 && employee.getBasicSalary() == null) {
+                log.warn("Employee {} has payable attendance but no basic salary configured.", employee.getId());
+            }
+            payrollCalculator.calculate(employee, info);
+            musterWageInfos.add(info);
+        }
+
+        log.info("Muster sheet data calculation completed. Generated {} muster wage infos.", musterWageInfos.size());
     }
 
-    private double calculateDailyOT(Attendance entry) {
-        log.debug("Calculating daily OT for attendance entry on date: {}", entry.getAttendDate());
+    private Map<LocalDate, Attendance> uniqueAttendanceByDate(List<Attendance> attendance, Employee employee) {
+        Map<LocalDate, Attendance> attendanceByDate = new LinkedHashMap<>();
+        for (Attendance entry : attendance) {
+            if (entry.getAttendDate() == null) {
+                log.warn("Skipping attendance without a date for employee {}.", employee.getId());
+                continue;
+            }
+            Attendance existing = attendanceByDate.putIfAbsent(entry.getAttendDate(), entry);
+            if (existing != null) {
+                log.warn("Duplicate attendance for employee {} on {}; using the first record.",
+                        employee.getId(), entry.getAttendDate());
+            }
+        }
+        return attendanceByDate;
+    }
+
+    private void calculateAttendanceTotals(List<Attendance> attendance, MusterWageInfo info) {
+        double workedDays = 0;
+        double overtimeHours = 0;
+        double nationalHolidayDays = 0;
+
+        for (Attendance entry : attendance) {
+            String status = entry.getStatus() == null
+                    ? ""
+                    : entry.getStatus().trim().toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
+
+            if (ABSENCE_STATUSES.contains(status) || status.isEmpty()) {
+                continue;
+            }
+
+            if (NATIONAL_HOLIDAY_STATUSES.contains(status)) {
+                workedDays++;
+                nationalHolidayDays++;
+                continue;
+            }
+
+            if (status.equals("W/P")) {
+                workedDays++;
+                overtimeHours += SHIFT_HOURS;
+                continue;
+            }
+
+            if (status.equals("P") || status.equals("O") || status.startsWith("OT")) {
+                workedDays++;
+                overtimeHours += calculateDailyOvertime(entry);
+                continue;
+            }
+
+            if (status.equals("W/O")) {
+                workedDays++;
+                continue;
+            }
+
+            if (status.equals("AP")) {
+                workedDays += partialDayCredit;
+                if (partialDayCredit == 0) {
+                    log.warn("Ignoring company-specific partial attendance for employee {} on {}; configure payroll.attendance.partial-day-credit to credit it.",
+                            entry.getMasterEmployeeId(), entry.getAttendDate());
+                }
+                continue;
+            }
+
+            if (status.equals("E")) {
+                workedDays += exceptionDayCredit;
+                if (exceptionDayCredit == 0) {
+                    log.warn("Ignoring company-specific exception attendance for employee {} on {}; configure payroll.attendance.exception-day-credit to credit it.",
+                            entry.getMasterEmployeeId(), entry.getAttendDate());
+                }
+                continue;
+            }
+
+            log.warn("Ignoring unrecognized attendance status '{}' for employee {} on {}.",
+                    entry.getStatus(), entry.getMasterEmployeeId(), entry.getAttendDate());
+        }
+
+        info.setTotalDaysWorked(workedDays);
+        info.setOverTimeHours(overtimeHours);
+        info.setNightHalt(nationalHolidayDays);
+    }
+
+    private double calculateDailyOvertime(Attendance entry) {
         try {
-            LocalTime actualInTime = LocalTime.parse(entry.getInTime());
-            LocalTime outTime = LocalTime.parse(entry.getOutTime());
-            log.debug("InTime: {}, OutTime: {}", actualInTime, outTime);
+            LocalTime inTime = parseTime(entry.getInTime());
+            LocalTime outTime = parseTime(entry.getOutTime());
+            Duration elapsed = Duration.between(inTime, outTime);
+            if (elapsed.isNegative()) {
+                elapsed = elapsed.plusDays(1);
+            }
 
-            // Default to 9:30 if arriving early
-            LocalTime effectiveInTime = actualInTime.isBefore(LocalTime.of(9, 30))
-                    ? LocalTime.of(9, 30)
-                    : actualInTime;
-            log.debug("Effective InTime (after 9:30 adjustment): {}", effectiveInTime);
-
-            // Calculate duration in hours
-            double duration = Duration.between(effectiveInTime, outTime).toMinutes() / 60.0;
-            log.debug("Calculated duration: {} hours", duration);
-
-            // Subtract 1 hour for lunch
-            double otHours = duration - 1.0;
-            log.debug("OT hours before threshold: {} hours", otHours);
-
-            // Threshold check: Must be at least 1 hour
-            double finalOt = (otHours >= 1.0) ? otHours : 0;
-            log.debug("Final daily OT for {}: {} hours", entry.getAttendDate(), finalOt);
-            return finalOt;
-        } catch (DateTimeParseException e) {
-            log.error("Failed to parse time for OT calculation for employee {} on {}. InTime: {}, OutTime: {}. Error: {}",
-                    entry.getEmployeeName(), entry.getAttendDate(), entry.getInTime(), entry.getOutTime(), e.getMessage());
-            return 0; // Return 0 OT if time parsing fails
-        } catch (Exception e) {
-            log.error("Error calculating daily OT for employee {} on {}. Error: {}",
-                    entry.getEmployeeName(), entry.getAttendDate(), e.getMessage(), e);
+            long standardShiftMinutes = Duration.ofHours(SHIFT_HOURS + BREAK_HOURS).toMinutes();
+            long overtimeMinutes = Math.max(0, elapsed.toMinutes() - standardShiftMinutes);
+            return overtimeMinutes / 60.0;
+        } catch (DateTimeParseException | NullPointerException e) {
+            log.warn("Unable to calculate overtime for employee {} on {} from times '{}' and '{}'.",
+                    entry.getMasterEmployeeId(), entry.getAttendDate(), entry.getInTime(), entry.getOutTime());
             return 0;
         }
+    }
+
+    private LocalTime parseTime(String value) {
+        if (value == null || value.isBlank()) {
+            throw new DateTimeParseException("Time is empty", value == null ? "" : value, 0);
+        }
+        DateTimeParseException lastError = null;
+        for (DateTimeFormatter formatter : TIME_FORMATTERS) {
+            try {
+                return LocalTime.parse(value.trim(), formatter);
+            } catch (DateTimeParseException e) {
+                lastError = e;
+            }
+        }
+        throw lastError;
+    }
+
+    private String joinName(String firstName, String lastName) {
+        return String.join(" ", firstName == null ? "" : firstName, lastName == null ? "" : lastName).trim();
+    }
+
+    private String identifier(Number identifier) {
+        return identifier == null ? "" : identifier.toString();
     }
 }

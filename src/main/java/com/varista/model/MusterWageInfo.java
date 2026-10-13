@@ -44,6 +44,9 @@ public class MusterWageInfo {
     private double otAmount;
     private double nhAmount;
     private double hra;
+    private double interimBonus;
+    private double washingAllowance;
+    private double specialAllowance;
     private double grossWage;
 
     // Deductions
@@ -51,6 +54,7 @@ public class MusterWageInfo {
     private double esicDeduction;
     private double ptDeduction; // Professional Tax
     private double lwfDeduction; // Labour Welfare Fund
+    private double advanceRecovery;
     private double otherDeductions;
     private double totalDeductions;
 
