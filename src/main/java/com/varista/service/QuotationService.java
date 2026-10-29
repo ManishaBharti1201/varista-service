@@ -119,11 +119,11 @@ public class QuotationService {
         String filePathPattern = ApplicationConstants.QUOTATION_DIRECTORY + getDirectoryName + "/EST-" + id + ".pdf";
         try {
             Files.deleteIfExists(quotationPath);
-            Path dirPath = Paths.get(ApplicationConstants.QUOTATION_DIRECTORY + getDirectoryName);
-            if (Files.exists(dirPath)) {
-                try (var files = Files.list(dirPath)) {
+            Path directoryToDelete = Paths.get(ApplicationConstants.QUOTATION_DIRECTORY + getDirectoryName);
+            if (Files.exists(directoryToDelete)) {
+                try (var files = Files.list(directoryToDelete)) {
                     if (files.findAny().isEmpty()) {
-                        Files.deleteIfExists(dirPath);
+                        Files.deleteIfExists(directoryToDelete);
                     }
                 }
             }
@@ -182,7 +182,7 @@ public class QuotationService {
         if (safeCustomerName.equals(".") || safeCustomerName.equals("..")) {
             safeCustomerName = "_";
         }
-        return Paths.get(QUOTATION_DIRECTORY, safeCustomerName, "EST-" + id + ".pdf");
+        return Paths.get(ApplicationConstants.QUOTATION_DIRECTORY, safeCustomerName, "EST-" + id + ".pdf");
     }
 
     public Resource downloadQuotation(long id) {

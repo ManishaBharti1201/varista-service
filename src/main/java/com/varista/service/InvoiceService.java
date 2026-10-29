@@ -235,7 +235,7 @@ public class InvoiceService {
             safeCompanyName = "_";
         }
         String safeInvoiceNumber = invoiceNumber.replaceAll("[\\\\/:*?\"<>|]", "_");
-        return Paths.get(INVOICE_DIRECTORY, safeCompanyName, safeInvoiceNumber + ".pdf");
+        return Paths.get(ApplicationConstants.INVOICE_DIRECTORY, safeCompanyName, safeInvoiceNumber + ".pdf");
     }
 
     public InvoiceResponse markAsPaid(Long id) {

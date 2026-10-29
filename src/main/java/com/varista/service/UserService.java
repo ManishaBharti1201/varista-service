@@ -9,6 +9,7 @@ import com.varista.model.LoginRequest;
 import com.varista.model.LoginResponse;
 import com.varista.model.UserRequest;
 import com.varista.repository.UserRepository;
+import com.varista.tenant.TenantContext;
 import com.varista.utils.EmailUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,11 +39,20 @@ public class UserService {
     public LoginResponse login(LoginRequest loginRequest) throws Exception {
         log.info("Attempting login for user: {}", loginRequest.getUsername());
 
+        Long selectedCompanyId = TenantContext.getTenantId();
+        if (selectedCompanyId == null) {
+            throw new Exception("Invalid username or password");
+        }
+
         User user = userRepository.findByEmail(loginRequest.getUsername())
                 .orElseThrow(() -> {
                     log.warn("Login failed: User {} not found.", loginRequest.getUsername());
                     return new Exception("Invalid username or password");
                 });
+
+        if (user.getOrgId() != selectedCompanyId) {
+            throw new Exception("Invalid username or password");
+        }
 
         // Security Note: In production, use BCryptPasswordEncoder.matches(raw, encoded)
         if (!loginRequest.getPassword().equals(user.getPassword())) {
@@ -98,6 +108,7 @@ public class UserService {
                 .expirationTime(exp)
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole())
+                .claim("company_id", String.valueOf(user.getOrgId()))
                 .build();
 
         SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
