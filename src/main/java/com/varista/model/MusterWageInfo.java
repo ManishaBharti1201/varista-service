@@ -39,6 +39,15 @@ public class MusterWageInfo {
     private double nightHalt; // NH
 
     // Financial/Wage Details
+    private double fixedMinimumWages;
+    private double fixedHra;
+    private double fixedInterimBonus;
+    private double fixedWashingAllowance;
+    private double fixedSpecialAllowance;
+    private double otherAllowance;
+    private double employerLwfContribution;
+    private double employerPfContribution;
+    private double employerEsicContribution;
     private double dailyWage;
     private double basicWages;
     private double otAmount;

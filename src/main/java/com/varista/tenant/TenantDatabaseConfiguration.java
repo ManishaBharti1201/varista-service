@@ -49,6 +49,8 @@ public class TenantDatabaseConfiguration {
             tenantDataSource.setPoolName("tenant-" + tenantId);
             tenantDataSource.setMaximumPoolSize(5);
             tenantDataSource.setMinimumIdle(0);
+            tenantDataSource.setMaxLifetime(25 * 60 * 1000);
+            tenantDataSource.setKeepaliveTime(2 * 60 * 1000);
             try (var connection = tenantDataSource.getConnection()) {
                 if (!connection.isValid(2)) {
                     throw new SQLException("Connection validation returned false");

@@ -51,7 +51,7 @@ public class SecurityConfig {
                                 "/tenant/all",
                                 "/user/register",
                                 "/user/health",
-                                "/user/resetPassword/**"
+                                "/user/password-reset/**"
                         ).permitAll() // Public
                         .anyRequest().authenticated() // All other endpoints require a token
                 )

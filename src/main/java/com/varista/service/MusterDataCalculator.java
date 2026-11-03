@@ -54,7 +54,10 @@ public class MusterDataCalculator {
         this.exceptionDayCredit = exceptionDayCredit;
     }
 
-    public void calculateMusterSheetData(List<Attendance> attendanceList, List<MusterWageInfo> musterWageInfos) {
+    public void calculateMusterSheetData(
+            List<Attendance> attendanceList,
+            List<MusterWageInfo> musterWageInfos,
+            LocalDate paymentDate) {
         log.info("Starting muster sheet data calculation for {} attendance records.", attendanceList.size());
         YearMonth attendanceMonth = attendanceList.stream()
                 .filter(attendance -> attendance.getAttendDate() != null)
@@ -101,10 +104,7 @@ public class MusterDataCalculator {
             info.setDailyAttendanceStatus(dailyStatus);
 
             calculateAttendanceTotals(attendanceByDate.values().stream().toList(), info);
-            if (info.getTotalDaysWorked() > 0 && employee.getBasicSalary() == null) {
-                log.warn("Employee {} has payable attendance but no basic salary configured.", employee.getId());
-            }
-            payrollCalculator.calculate(employee, info);
+            payrollCalculator.calculate(employee, info, attendanceMonth, paymentDate);
             musterWageInfos.add(info);
         }
 
@@ -148,7 +148,6 @@ public class MusterDataCalculator {
             }
 
             if (status.equals("W/P")) {
-                workedDays++;
                 overtimeHours += SHIFT_HOURS;
                 continue;
             }
@@ -160,7 +159,6 @@ public class MusterDataCalculator {
             }
 
             if (status.equals("W/O")) {
-                workedDays++;
                 continue;
             }
 

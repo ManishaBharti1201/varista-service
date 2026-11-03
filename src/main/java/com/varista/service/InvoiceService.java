@@ -3,6 +3,8 @@ package com.varista.service;
 import com.varista.constant.ApplicationConstants;
 import com.varista.entity.Company;
 import com.varista.entity.Invoice;
+import com.varista.exception.InvoiceFileNotFoundException;
+import com.varista.exception.InvoiceNotFoundException;
 import com.varista.model.InvoiceData;
 import com.varista.model.InvoiceRequest;
 import com.varista.model.InvoiceResponse;
@@ -205,28 +207,46 @@ public class InvoiceService {
 
     public Resource downloadInvoice(String id) throws IOException {
         log.info("Attempting to download invoice with ID: {}", id);
+        Invoice invoice;
         try {
-            Invoice invoice = invoiceRepository.findById(Long.valueOf(id))
-                    .orElseThrow(() -> {
-                        log.error("Invoice not found with ID: {} for download.", id);
-                        return new RuntimeException("Invoice not found with ID: " + id);
-                    });
-
-            String companyName = companyService.getCompanyById(invoice.getCompanyId()).getName();
-            log.debug("Found invoice ID: {} belonging to company: {}", id, companyName);
-
-            Path filePath = getInvoicePath(companyName, invoice.getInvoiceNumber());
-            if (!Files.exists(filePath)) {
-                log.error("Invoice file not found on disk for ID: {}. Path: {}", id, filePath);
-                throw new IOException("Invoice file not found on disk for ID: " + id);
-            }
-            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(filePath));
-            log.info("Streaming PDF for invoice ID: {} (Size: {} bytes)", id, resource.contentLength());
-            return resource;
-        } catch (IOException e) {
-            log.error("Error downloading invoice file for ID {}: {}", id, e.getMessage(), e);
-            throw e;
+            invoice = invoiceRepository.findById(Long.valueOf(id))
+                    .orElseThrow(() -> new InvoiceNotFoundException("Invoice not found with ID: " + id));
+        } catch (NumberFormatException exception) {
+            throw new InvoiceNotFoundException("Invalid invoice ID: " + id);
         }
+
+        Company company = companyService.getCompanyById(invoice.getCompanyId());
+        if (company == null || company.getName() == null || invoice.getInvoiceNumber() == null) {
+            throw new InvoiceNotFoundException("Invoice details are unavailable for ID: " + id);
+        }
+        Path filePath = getInvoicePath(company.getName(), invoice.getInvoiceNumber());
+        if (!Files.isRegularFile(filePath) || !Files.isReadable(filePath)) {
+            log.warn("Invoice PDF is unavailable on disk for ID: {}. Path: {}", id, filePath);
+            throw new InvoiceFileNotFoundException("Invoice PDF not found for ID: " + id);
+        }
+
+        byte[] pdfBytes = Files.readAllBytes(filePath);
+        if (!isPdfFile(pdfBytes)) {
+            log.error("Invoice file is not a valid PDF for ID: {}. Path: {}", id, filePath);
+            throw new IOException("Invoice file is invalid for ID: " + id);
+        }
+
+        ByteArrayResource resource = new ByteArrayResource(pdfBytes);
+        log.info("Streaming PDF for invoice ID: {} (Size: {} bytes)", id, resource.contentLength());
+        return resource;
+    }
+
+    private boolean isPdfFile(byte[] fileContent) {
+        byte[] pdfSignature = "%PDF-".getBytes(StandardCharsets.US_ASCII);
+        if (fileContent.length < pdfSignature.length) {
+            return false;
+        }
+        for (int i = 0; i < pdfSignature.length; i++) {
+            if (fileContent[i] != pdfSignature[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Path getInvoicePath(String companyName, String invoiceNumber) {

@@ -48,7 +48,10 @@ public class AttendanceService {
     MusterDataCalculator musterDataCalculator;
 
     @Transactional(rollbackFor = Exception.class)
-    public ByteArrayInputStream uploadAttendance(MultipartFile file) throws Exception { // Changed return type to ByteArrayInputStream
+    public ByteArrayInputStream uploadAttendance(MultipartFile file, LocalDate paymentDate) throws Exception {
+        if (paymentDate == null) {
+            throw new IllegalArgumentException("Payment date is required for payroll generation.");
+        }
         log.info("Starting upload of attendance file: {}", file.getOriginalFilename());
         List<Attendance> attendanceList = new ArrayList<>();
 
@@ -115,7 +118,7 @@ public class AttendanceService {
         log.info("Attempting to create muster sheet for month: {}", month);
         List<MusterWageInfo> musterWageInfos = new ArrayList<>();
 
-        musterDataCalculator.calculateMusterSheetData(attendanceList, musterWageInfos);
+        musterDataCalculator.calculateMusterSheetData(attendanceList, musterWageInfos, paymentDate);
         log.info("Muster data calculated. Generated {} MusterWageInfo entries.", musterWageInfos.size());
 
         if (!musterWageInfos.isEmpty()) {

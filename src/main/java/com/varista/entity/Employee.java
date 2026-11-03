@@ -38,7 +38,10 @@ public class Employee {
     private BigDecimal interimBonus;
     private BigDecimal washingAllowance;
     private BigDecimal specialAllowance;
+    private BigDecimal otherAllowance;
     private BigDecimal lwfDeduction;
     private BigDecimal advanceRecovery;
     private BigDecimal otherDeductions;
+    private BigDecimal employerLwfContribution;
+    private LocalDate dateOfPayment;
 }

@@ -3,10 +3,10 @@ package com.varista.controller;
 import com.varista.entity.User;
 import com.varista.model.LoginRequest;
 import com.varista.model.LoginResponse;
+import com.varista.model.PasswordResetRequest;
 import com.varista.model.UserRequest;
 import com.varista.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -104,17 +104,26 @@ public class UserController {
         }
     }
 
-    @PostMapping("/resetPassword/{emailId}")
-    @Operation(summary = "Trigger password reset", description = "Sends a password recovery email to the specified address")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Reset email sent successfully (or process triggered)"),
-            @ApiResponse(responseCode = "404", description = "Email address not found")
-    })
-    public ResponseEntity<Void> resetPassword(
-            @Parameter(description = "Registered email address of the user", example = "john.doe@jsw.in")
-            @PathVariable String emailId) {
-        log.info("Received request to reset password for email: {}", emailId);
-        userService.resetPassword(emailId);
-        return ResponseEntity.ok().build();
+    @PostMapping("/password-reset/request")
+    @Operation(summary = "Request password reset code", description = "Sends a short-lived verification code when the email belongs to a user in the selected workspace")
+    public ResponseEntity<Map<String, String>> requestPasswordReset(@RequestBody PasswordResetRequest request) {
+        try {
+            userService.requestPasswordReset(request.getEmail());
+            return ResponseEntity.ok(Map.of(
+                    "message", "If an account exists for that email, a verification code has been sent."));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+        }
+    }
+
+    @PostMapping("/password-reset/confirm")
+    @Operation(summary = "Confirm password reset", description = "Verifies the email code and sets a new password")
+    public ResponseEntity<Map<String, String>> confirmPasswordReset(@RequestBody PasswordResetRequest request) {
+        try {
+            userService.confirmPasswordReset(request);
+            return ResponseEntity.ok(Map.of("message", "Password reset successfully."));
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
+        }
     }
 }

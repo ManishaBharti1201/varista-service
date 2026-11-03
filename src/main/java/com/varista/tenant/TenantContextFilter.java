@@ -73,7 +73,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
         return "/user/login".equals(path)
                 || "/user/register".equals(path)
                 || "/user/verify-otp".equals(path)
-                || path.startsWith("/user/resetPassword/");
+                || path.startsWith("/user/password-reset/");
     }
 
     private Long parseTenantId(String value) {

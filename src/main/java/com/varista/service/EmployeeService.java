@@ -36,6 +36,9 @@ public class EmployeeService {
         if (employeeInfo.getId() == null || employeeInfo.getId() == 0) {
             employeeInfo.setId(InvoiceUtils.generate5DigitId());
             log.debug("Generated new ID {} for employee.", employeeInfo.getId());
+        } else {
+            employeeRepository.findById(employeeInfo.getId())
+                    .ifPresent(existing -> preservePayrollProfile(employeeInfo, existing));
         }
         if (employeeInfo.getJoiningDate() == null) {
             employeeInfo.setJoiningDate(LocalDate.now());
@@ -44,6 +47,22 @@ public class EmployeeService {
         Employee savedEmployee = employeeRepository.save(employeeInfo);
         log.info("Employee with ID: {} saved successfully.", savedEmployee.getId());
         return savedEmployee;
+    }
+
+    private void preservePayrollProfile(Employee updated, Employee existing) {
+        if (updated.getBasicSalary() == null) updated.setBasicSalary(existing.getBasicSalary());
+        if (updated.getHra() == null) updated.setHra(existing.getHra());
+        if (updated.getInterimBonus() == null) updated.setInterimBonus(existing.getInterimBonus());
+        if (updated.getWashingAllowance() == null) updated.setWashingAllowance(existing.getWashingAllowance());
+        if (updated.getSpecialAllowance() == null) updated.setSpecialAllowance(existing.getSpecialAllowance());
+        if (updated.getOtherAllowance() == null) updated.setOtherAllowance(existing.getOtherAllowance());
+        if (updated.getLwfDeduction() == null) updated.setLwfDeduction(existing.getLwfDeduction());
+        if (updated.getAdvanceRecovery() == null) updated.setAdvanceRecovery(existing.getAdvanceRecovery());
+        if (updated.getOtherDeductions() == null) updated.setOtherDeductions(existing.getOtherDeductions());
+        if (updated.getEmployerLwfContribution() == null) {
+            updated.setEmployerLwfContribution(existing.getEmployerLwfContribution());
+        }
+        if (updated.getDateOfPayment() == null) updated.setDateOfPayment(existing.getDateOfPayment());
     }
 
     public void deleteEmployee(Long id) {

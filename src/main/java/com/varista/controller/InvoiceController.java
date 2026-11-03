@@ -4,6 +4,8 @@ import com.varista.model.InvoiceData;
 import com.varista.model.InvoiceRequest;
 import com.varista.model.InvoiceResponse;
 import com.varista.service.InvoiceService;
+import com.varista.exception.InvoiceFileNotFoundException;
+import com.varista.exception.InvoiceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -112,13 +114,15 @@ public class InvoiceController {
                     .contentType(MediaType.APPLICATION_PDF)
                     .body(response);
         } catch (IOException e) {
-            if (e.getMessage().contains("Invoice file not found")) {
-                log.warn("Invoice file not found for ID: {}", id);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .build();
+            if (e instanceof InvoiceFileNotFoundException) {
+                log.warn("Invoice PDF is unavailable for ID: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }
             log.error("Error occurred while downloading invoice ID: {}: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (InvoiceNotFoundException e) {
+            log.warn("Invoice not found for download: {}", id);
+            return ResponseEntity.notFound().build();
         }
     }
 

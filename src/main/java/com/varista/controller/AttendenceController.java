@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
+import java.time.LocalDate;
 import java.util.Map;
 
 @Slf4j
@@ -48,14 +49,17 @@ public class AttendenceController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public ResponseEntity<Resource> uploadTimesheet( // Changed return type to ResponseEntity<Resource>
             @Parameter(description = "Excel file containing attendance data", required = true)
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file,
+            @Parameter(description = "Payment date for this payroll run", required = true)
+            @RequestParam("paymentDate") @org.springframework.format.annotation.DateTimeFormat(
+                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate paymentDate) {
         log.info("Received request to upload timesheet. File name: {}", file.getOriginalFilename());
         if (file.isEmpty()) {
             log.warn("Timesheet upload request received with empty file.");
             return ResponseEntity.badRequest().body(null); // Return null body for bad request
         }
         try {
-            ByteArrayInputStream excelStream = attendenceService.uploadAttendance(file); // Service now returns ByteArrayInputStream
+            ByteArrayInputStream excelStream = attendenceService.uploadAttendance(file, paymentDate);
             log.info("Timesheet uploaded and Muster Excel generated successfully for file: {}", file.getOriginalFilename());
 
             HttpHeaders headers = new HttpHeaders();

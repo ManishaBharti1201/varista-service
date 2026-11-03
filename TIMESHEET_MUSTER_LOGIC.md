@@ -9,14 +9,14 @@ The process has been streamlined into a single operation:
 1.  **Timesheet Upload & Generation**: An Excel file containing daily attendance records is uploaded via the `/timesheet/upload` API endpoint.
 2.  **Data Processing**: The `AttendenceService` parses the Excel data, links attendance records to existing employees, and saves them to the database.
 3.  **Muster Data Calculation**: Immediately after processing and saving attendance, the `AttendenceService` retrieves relevant attendance records and passes them to `MusterDataCalculator` to aggregate and calculate muster-specific data per employee, populating `MusterWageInfo` objects.
-4.  **Excel Generation**: The `ExcelUtils` component then takes these populated `MusterWageInfo` objects and generates a single Excel file containing both the "Muster Master Sheet" and "Master Wage Sheet".
+4.  **Excel Generation**: `ExcelUtils.generateMasterRegisterFile` uses the formatted salary-register template to generate a workbook containing a monthly muster sheet and wage register.
 5.  **File Download**: The generated Excel file is returned directly as a downloadable response from the `/timesheet/upload` endpoint.
 
 ## 2. Key Components Involved
 
 *   **`AttendenceService`**: Handles the initial Excel upload, parsing, linking attendance to employees, saving records, orchestrating the muster data calculation, and triggering the final Excel generation. It now returns the generated Excel file.
 *   **`MusterDataCalculator`**: Contains the core business logic for calculating various attendance metrics (total days, OT hours, NH hours) for each employee based on their daily attendance records, populating `MusterWageInfo` objects.
-*   **`ExcelUtils`**: Provides utility methods for reading Excel files (e.g., `getCellValue`, `inspectTemplateHeaders`) and generating new Excel files (e.g., `generateAttendanceSheet`), now handling both Muster Master and Master Wage sheets using `MusterWageInfo`.
+*   **`ExcelUtils`**: Provides utility methods for reading Excel files (e.g., `getCellValue`, `inspectTemplateHeaders`) and generates both register sheets from `salary_register_template.xlsx` using `MusterWageInfo`.
 *   **`EmployeeService`**: Used by `MusterDataCalculator` to fetch employee details (like name, DOB, designation, joining date, etc.) for the muster sheet.
 *   **`AttendanceRepository`**: JPA repository for `Attendance` entities.
 *   **`EmployeeRepository`**: JPA repository for `Employee` entities.
@@ -58,9 +58,9 @@ This method is now the central point for both timesheet ingestion and muster she
 6.  **Muster Data Calculation**:
     *   Determines the `YearMonth` from the processed attendance data.
     *   Initializes a `List<MusterWageInfo>`.
-    *   Calls `musterDataCalculator.calculateMusterSheetData(attendanceList, musterWageInfos)` to populate the `MusterWageInfo` objects.
+    *   Calls `musterDataCalculator.calculateMusterSheetData(attendanceList, musterWageInfos, paymentDate)` to populate the `MusterWageInfo` objects for the payment date supplied with this upload.
 7.  **Excel Generation**:
-    *   `excelUtils.generateAttendanceSheet(musterWageInfos, yearMonth)`: Uses the populated `MusterWageInfo` list and the `YearMonth` to generate the final Excel file containing both Muster Master and Master Wage sheets.
+    *   The upload supplies a payment date for this payroll run. `excelUtils.generateMasterRegisterFile(musterWageInfos, yearMonth)` uses the populated `MusterWageInfo` list and the `YearMonth` to generate the final Excel file containing both Muster Master and Master Wage sheets.
 8.  **Return Excel**: The generated `ByteArrayInputStream` (the Excel file) is returned to the controller for download.
 
 ### 3.2. Muster Data Calculation (`MusterDataCalculator.calculateMusterSheetData`)
@@ -78,7 +78,7 @@ This method now populates the comprehensive `MusterWageInfo` objects.
         *   **Attendance/Muster Specifics**:
             *   `dailyAttendanceStatus`: A `Map<Integer, String>` where the key is the day of the month (1-31) and the value is the `status` (P, AB, O, NH, PH, OT, etc.) for that day. This is populated by filtering the `attendanceList` for the current employee.
             *   `workingHours`, `interval`: Set to default values (e.g., "Day Shift", "1 Hr").
-        *   **Financial/Wage Details**: These fields (`dailyWage`, `basicWages`, `otAmount`, `nhAmount`, `hra`, `grossWage`, `pfDeduction`, `esicDeduction`, `ptDeduction`, `lwfDeduction`, `otherDeductions`, `totalDeductions`, `netWage`, `dateOfPayment`) are initialized to `0.0`, `null`, or default values as their calculation logic is not present in this context.
+        *   **Financial/Wage Details**: `PayrollCalculator` selects the effective-dated category minimum wage, calculates HRA at 5% and interim bonus at 8.33%, and prorates employee-specific washing/special/other allowances and deductions. PF uses 12% of earned basic, washing, and special allowance, capped at ₹15,000. Employee and employer ESIC use 0.75% and 3.25% of gross less earned washing allowance for employees with an ESIC identifier. Professional tax uses deployment-configured slabs. The payment date is supplied for each payroll run.
         *   **Project Metadata**: `jobCode`, `subContractorName`, `remarks` are initialized to `null` or default values. `subContractorName` is set to "Varista Industrial Solutions".
         *   Calls `calculateTotalOTAndHNDays` to compute aggregated metrics (`totalDaysWorked`, `overTimeHours`, `nightHalt`).
         *   Adds the populated `MusterWageInfo` to the `musterWageInfos` list.
@@ -90,43 +90,28 @@ This method aggregates the daily attendance statuses and times into total metric
 
 1.  **Initialization**: `totalDaysWorked = 0`, `overTimeHours = 0`, `nightHalt = 0`.
 2.  **Iterate Daily Entries**: Loops through each `Attendance` record for a specific employee.
-3.  **Calculate Total Days Worked**:
-    *   If `status` matches `P` (Present), `AP` (Absent with Pay), `NH` (National Holiday), `PH` (Public Holiday), or `OT` (Overtime), `totalDaysWorked` is incremented. This defines what counts as a "working day" for muster purposes.
-4.  **Calculate Overtime Hours**:
-    *   If `status` contains `"OT"` or is `"AP"` or `"P"`, it calls `calculateDailyOT(dayEntry)` to get the overtime for that specific day and adds it to `overTimeHours`.
-5.  **Calculate Night Halt (NH) Hours**:
-    *   If `status` is `"NH"` or `"PH"`, `nightHalt` is incremented by `1.0`. This typically represents a day's worth of holiday pay.
-6.  **Set Results**: The calculated `totalDaysWorked`, `overTimeHours`, and `nightHalt` are set on the `MusterWageInfo` object.
+3.  **Calculate Paid Days**:
+    *   `P`, `O`, and `OT` each add one paid day and calculate ordinary OT from their recorded times.
+    *   `NH`, `N/H`, and `PH` each add one paid day and one holiday day.
+    *   `W/O` is a weekly-off marker and does not add a prorated paid day. `W/P` records work on a weekly off and contributes eight rest-OT hours without adding a prorated paid day.
+    *   `A` and `AB` add no paid days. `AP` and `E` use the configured `payroll.attendance.partial-day-credit` and `payroll.attendance.exception-day-credit` values.
+4.  **Set Results**: The calculated paid days, ordinary plus rest overtime hours, and holiday days are set on the `MusterWageInfo` object.
 
 ### 3.4. Daily Overtime Calculation (`MusterDataCalculator.calculateDailyOT`)
 
 This method determines the overtime hours for a single day's attendance record.
 
-1.  **Time Parsing**:
-    *   Parses `InTime` and `OutTime` from the `Attendance` entry into `LocalTime` objects.
-2.  **Effective In-Time Adjustment**:
-    *   `effectiveInTime` is set to `9:30 AM` if the `actualInTime` is earlier than `9:30 AM`. Otherwise, it uses the `actualInTime`. This implies a policy where work before 9:30 AM is not counted towards regular or overtime hours.
-3.  **Duration Calculation**:
-    *   Calculates the `duration` between `effectiveInTime` and `outTime` in hours.
-4.  **Lunch Break Deduction**:
-    *   Subtracts `1.0` hour from the `duration` (assuming a fixed 1-hour lunch break).
-5.  **Overtime Threshold**:
-    *   Applies a threshold: if the calculated `otHours` are less than `1.0` hour, the daily overtime is considered `0`. Otherwise, the calculated `otHours` are used. This means only significant overtime (1 hour or more) is counted.
-6.  **Error Handling**: Includes `try-catch` blocks for `DateTimeParseException` and general `Exception` to handle invalid time formats gracefully, returning `0` OT hours in such cases.
+1.  Parses `InTime` and `OutTime` into `LocalTime` values, including overnight shifts.
+2.  Calculates ordinary overtime as `max(elapsed hours - 9, 0)`, where nine hours represents an eight-hour shift plus a one-hour unpaid break.
+3.  Invalid or missing time values are logged and contribute zero ordinary OT. Weekly-off work is accounted for separately as eight rest-OT hours per `W/P` day.
 
-## 4. Excel Template (`timesheet_template.xlsx`) and `ExcelUtils.generateAttendanceSheet`
+## 4. Salary Register Template and Output Mapping
 
-The `ExcelUtils.generateAttendanceSheet` method is now responsible for populating a pre-existing Excel template (`timesheet_template.xlsx`) with data from `MusterWageInfo` into two distinct sheets:
+`ExcelUtils.generateMasterRegisterFile` loads `salary_register_template.xlsx`, a sanitized copy of the supplied salary-register example. The template retains its headers, cell styles, column widths, merged cells, row heights, and print settings; employee/payroll values, formulas, comments, and identifying document metadata are removed. Generation updates the month and contractor/project titles without changing the reference formatting. It does not auto-size columns or apply replacement styles across the workbook.
 
-1.  **"Muster Master Sheet" (Sheet 1)**:
-    *   Populated using `fillMusterMasterData`.
-    *   Maps `MusterWageInfo` fields like `serialNo`, `aadharNumber`, `eipId`, `employeeName`, `designation`, `dateOfBirth`, `dateOfJoining`, `workingHours`, `interval`, `dailyAttendanceStatus` (for daily cells), `totalDaysWorked`, `overTimeHours`, `nightHalt`, `jobCode`, `subContractorName`.
-    *   Applies styling for data and highlights Sundays.
-
-2.  **"Master Wage Sheet" (Sheet 2)**:
-    *   Populated using `fillMusterWageData`.
-    *   Maps `MusterWageInfo` fields like `serialNo`, `employeeName`, `designation`, `totalDaysWorked`, `overTimeHours`, `nightHalt`, `dailyWage`, `basicWages`, `otAmount`, `nhAmount`, `hra`, `grossWage`, `pfDeduction`, `esicDeduction`, `ptDeduction`, `lwfDeduction`, `otherDeductions`, `totalDeductions`, `netWage`, `dateOfPayment`, `jobCode`, `subContractorName`, `remarks`.
-    *   Includes dynamic headers and applies styling.
+1. **Muster sheet**: Employee serial number, EIP identifier, and name appear before one column per calendar day. Present days (`P`, `O`) and national/public holidays are included in paid days. `W/O` does not add another prorated day; `W/P` adds eight rest-OT hours. Ordinary OT and rest OT are added to total OT. Sundays use the template’s Sunday cell style. The layout adjusts summary columns for 28–31 day months.
+2. **Wage register**: Minimum wages are selected by category from `payroll.minimum-wages.schedule`, using the latest effective schedule not later than the payroll month. The May 2026 register indicates Unskilled = ₹15,306, Semiskilled = ₹16,316, and Skilled = ₹17,736; the August register indicates ₹15,585, ₹16,595, and ₹18,015 respectively. Update the schedule when a new approved rate takes effect. Category matching ignores case, spaces, and hyphens; unknown categories and months before the first schedule fail payroll generation. HRA is 5% and interim bonus is 8.33% of fixed minimum wages. Washing, special, and other allowances and deductions use the employee's stored payroll profile; updates from the employee form preserve those stored fields when omitted. Fixed gross salary is the sum of fixed minimum wages and fixed allowances. Earned wage components are prorated using the existing 26-day divisor. PF is 12% of earned basic plus washing and special allowance, capped at ₹15,000, following the selected August-register basis. Employee and employer ESIC are 0.75% and 3.25% of gross less earned washing allowance when an ESIC identifier is present. Professional tax uses threshold entries in `payroll.professional-tax.slabs` (the observed 2026 register values are ₹0 through ₹7,500, ₹175 above ₹7,500 through ₹10,000, and ₹200 above ₹10,000). Supply the payment date on each upload; the register does not infer a fixed day from prior examples. Zero allowances/deductions remain zero if their employee profile values are absent. These inferred rules should be checked against current statutory guidance and approved payroll policy.
+3. **Totals and values**: Numeric wage columns are totaled in a final row. Numeric fields, including zero-value amounts, are written explicitly so payroll columns are not left blank when their calculated value is zero. Data rows are written as values, not copied from the sample’s formulas, so generated workbooks do not retain sample formulas or cached results.
 
 ---
 This document provides a comprehensive overview of the timesheet muster master sheet generation logic within your application, reflecting the latest changes.

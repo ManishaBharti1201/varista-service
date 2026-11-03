@@ -143,6 +143,20 @@ required tenant records, backups, and a successful tenant-aware login. Migrate
 only data belonging to that tenant; do not copy a shared database wholesale to
 every tenant.
 
+### Repair attendance ID generation
+
+The `Attendance` entity uses `GenerationType.IDENTITY`, so MySQL must generate
+`attendance.attendance_id`. If an upload fails with `Field 'attendance_id'
+doesn't have a default value`, the existing tenant table is missing the
+`AUTO_INCREMENT` property. Hibernate's `ddl-auto=update` does not reliably add
+that property to an existing column.
+
+Back up the affected tenant database, then apply
+[`database/migrations/20261029_01_attendance_id_auto_increment.sql`](./database/migrations/20261029_01_attendance_id_auto_increment.sql)
+to that tenant database. This preserves existing IDs and makes future inserts
+generate the next ID. Apply it separately to every tenant database with the
+same schema mismatch.
+
 ## Security requirements
 
 - Never commit database passwords, JWT secrets, or external `config/*.properties` files.
