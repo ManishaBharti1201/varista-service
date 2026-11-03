@@ -34,13 +34,11 @@ jobs:
     needs: build-and-push
     runs-on: self-hosted
     steps:
-      - name: Deploy to VM via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.VM_USER }}
-          password: ${{ secrets.VM_PASSWORD }}
-          script: |
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy Local Services
+        run: |
             # 1. Navigate to deployment folder
             cd ~/varista || { echo "Directory not found"; exit 1; }
             
