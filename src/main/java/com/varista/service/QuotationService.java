@@ -69,7 +69,7 @@ public class QuotationService {
                     .replace("{{quotationNbr}}", quotationId)
                     .replace("{{createDate}}", quotationRequest.getCreationDate().toString())
                     .replace("{{customer_name}}", quotationRequest.getCustomerName().replace("&", "&amp;"))
-                    .replace("{{customer_email}}", quotationRequest.getCustomerEmail())
+                    .replace("{{customer_email}}", quotationRequest.getCustomerEmail() == null ? "" : quotationRequest.getCustomerEmail())
                     .replace("{{tax_amount}}", String.valueOf(quotationRequest.getTaxAmount()))
                     .replace("{{total_amt}}", String.valueOf(quotationRequest.getTotalAmount()));
 
@@ -153,7 +153,7 @@ public class QuotationService {
                 InvoiceData.Item item = items.get(i);
 
                 itemTable = itemTable
-                        .replace("{{item_serial_number_" + row + "}}", String.valueOf(item.getSrNo()))
+                        .replace("{{item_serial_number_" + row + "}}", String.valueOf(row))
                         .replace("{{item_description_" + row + "}}", item.getDescription())
                         .replace("{{item_hsn_" + row + "}}", item.getHsnSac())
                         .replace("{{item_qty_" + row + "}}", String.valueOf(item.getQuantity()))

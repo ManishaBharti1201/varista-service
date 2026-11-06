@@ -1,5 +1,6 @@
 package com.varista.controller;
 
+import com.varista.exception.InvalidAttendanceWorkbookException;
 import com.varista.service.AttendanceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,8 +47,8 @@ public class AttendenceController {
             @ApiResponse(responseCode = "400", description = "Invalid file or empty file provided"),
             @ApiResponse(responseCode = "500", description = "Internal server error during processing or Excel generation")
     })
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    public ResponseEntity<Resource> uploadTimesheet( // Changed return type to ResponseEntity<Resource>
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadTimesheet(
             @Parameter(description = "Excel file containing attendance data", required = true)
             @RequestParam("file") MultipartFile file,
             @Parameter(description = "Payment date for this payroll run", required = true)
@@ -69,6 +70,9 @@ public class AttendenceController {
                     .headers(headers)
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                     .body(new InputStreamResource(excelStream));
+        } catch (InvalidAttendanceWorkbookException e) {
+            log.warn("Rejected invalid attendance workbook {}: {}", file.getOriginalFilename(), e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Timesheet upload and Muster Excel generation failed for file {}: {}", file.getOriginalFilename(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);

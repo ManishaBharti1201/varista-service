@@ -2,6 +2,7 @@ package com.varista.service;
 
 import com.varista.entity.Attendance;
 import com.varista.entity.Employee;
+import com.varista.exception.InvalidAttendanceWorkbookException;
 import com.varista.model.MusterWageInfo; // Changed import from MusterSheetInfo
 import com.varista.model.TimesheetResponse;
 import com.varista.repository.AttendanceRepository;
@@ -56,7 +57,7 @@ public class AttendanceService {
         List<Attendance> attendanceList = new ArrayList<>();
 
         try (InputStream is = file.getInputStream();
-             Workbook workbook = WorkbookFactory.create(is)) {
+             Workbook workbook = openAttendanceWorkbook(is)) {
             Sheet sheet = workbook.getSheetAt(0);
             int lastRowNum = sheet.getLastRowNum();
             log.debug("Processing sheet '{}' with {} rows.", sheet.getSheetName(), lastRowNum);
@@ -129,6 +130,16 @@ public class AttendanceService {
         ByteArrayInputStream inputStream = excelUtils.generateMasterRegisterFile(musterWageInfos, yearMonth);
         log.info("Muster Excel sheet generated successfully for month: {}.", month);
         return inputStream;
+    }
+
+    private Workbook openAttendanceWorkbook(InputStream inputStream) throws IOException {
+        try {
+            return WorkbookFactory.create(inputStream);
+        } catch (IllegalArgumentException | IOException e) {
+            throw new InvalidAttendanceWorkbookException(
+                    "The uploaded Excel file is invalid or damaged. Open it in Excel, save it as a new .xlsx file, and upload it again.",
+                    e);
+        }
     }
 
     private long updateUserTimesheetStatus(List<Attendance> attendanceList) {

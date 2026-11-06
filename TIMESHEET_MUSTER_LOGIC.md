@@ -31,6 +31,7 @@ This method is now the central point for both timesheet ingestion and muster she
 1.  **File Reading**:
     *   Accepts a `MultipartFile` (the uploaded Excel file).
     *   Uses `WorkbookFactory.create(is)` to open the Excel workbook, supporting both `.xls` and `.xlsx` formats.
+    *   If the workbook structure is invalid or damaged, the upload returns HTTP 400 with instructions to save a fresh `.xlsx` copy in Excel before retrying.
     *   Iterates through rows, starting from the second row (assuming the first row is headers).
 2.  **Data Extraction**:
     *   For each row, it extracts data from specific columns and maps them to an `Attendance` entity.
