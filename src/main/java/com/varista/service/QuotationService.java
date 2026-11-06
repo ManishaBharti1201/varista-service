@@ -75,7 +75,7 @@ public class QuotationService {
 
             log.debug("Populated HTML for quotation number: {}", quotationId);
 
-            // Path: /app/quotations/{companyId}/INV-{id}.pdf
+            // Path: /app/data/quotation/{customerName}/{quotationNumber}.pdf
             String directory = ApplicationConstants.QUOTATION_DIRECTORY + quotationRequest.getCustomerName().replace("/", "_");
             // Ensure directory exists
             Path dirPath = Paths.get(directory);

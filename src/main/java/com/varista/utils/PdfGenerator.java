@@ -16,7 +16,7 @@ public class PdfGenerator {
 
 
     public static void generateInvoicePdfToFile(String invoiceHtml, String outputFilePath) {
-        // 1. Ensure the directory exists inside the container path (/app/invoices)
+        // 1. Ensure the directory exists inside the container's data volume
         File file = new File(outputFilePath);
         if (file.getParentFile() != null) {
             file.getParentFile().mkdirs();

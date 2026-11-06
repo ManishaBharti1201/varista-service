@@ -14,5 +14,6 @@ COPY --from=build /app/target/varista-service*.jar varista-service.jar
 
 EXPOSE 8080
 RUN addgroup -S spring && adduser -S spring -G spring
+RUN mkdir -p /app/data/invoice /app/data/quotation && chown -R spring:spring /app/data
 USER spring:spring
 ENTRYPOINT ["java", "-jar", "varista-service.jar"]
