@@ -58,7 +58,7 @@ public class InvoiceMapper {
                         InvoiceData.Item item = new InvoiceData.Item();
                         item.setSrNo(i + 1); // Serial number starts from 1
                         item.setDescription(itemRequest.getDescription());
-                        item.setHsnSac(itemRequest.getHsnSac().toString());
+                        item.setHsnSac(itemRequest.getHsnSac() == null ? "" : itemRequest.getHsnSac());
                         item.setQuantity(itemRequest.getQuantity());
                         item.setRate(itemRequest.getRate());
                         item.setUnit(itemRequest.getUnit());

@@ -3,7 +3,6 @@ package com.varista.model;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -21,7 +20,7 @@ public class InvoiceRequest {
     @Data
     public static class ItemRequest {
         private String description;
-        private BigInteger hsnSac;
+        private String hsnSac;
         private double quantity;
         private double rate;
         private String unit;

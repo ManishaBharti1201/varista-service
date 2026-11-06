@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 
 @Data
@@ -25,7 +24,7 @@ public class InvoiceData {
     private BigDecimal taxAmount;
     private String amountInWords;
     private BankDetails bankDetails;
-    private BigInteger hsnSac;
+    private String hsnSac;
     private BigDecimal taxRate;
     private BigDecimal totalAmount;
 

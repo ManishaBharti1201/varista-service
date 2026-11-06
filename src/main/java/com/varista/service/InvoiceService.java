@@ -84,7 +84,7 @@ public class InvoiceService {
                     .replace("{{buyer_email}}", invoiceData.getBuyer().getEmail())
                     .replace("{{buyer_phone}}", invoiceData.getBuyer().getPhone())
                     .replace("{{buyer_order_number}}", invoiceData.getBuyerOrderNo())
-                    .replace("{{hsn_sac}}", invoiceData.getHsnSac().toString())
+                    .replace("{{hsn_sac}}", invoiceData.getHsnSac() == null ? "" : invoiceData.getHsnSac())
                     .replace("{{total_quantity}}", String.valueOf(
                             invoiceData.getItems().stream().mapToDouble(InvoiceData.Item::getQuantity).sum()))
                     .replace("{{amount_in_words}}", IndianCurrencyConverter.convertRupeesToWords(BigDecimal.valueOf(
