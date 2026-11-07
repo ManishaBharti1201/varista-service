@@ -20,7 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Date;
 import java.time.DayOfWeek;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -106,7 +106,7 @@ public class ExcelUtils {
                         .filePath(filePath.toString())
                         .relatedEntityName(subcontractor)
                         .contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                        .creationDate(LocalDateTime.now())
+                        .creationDate(Instant.now())
                         .build();
                 blobRepository.save(blobRecord);
                 log.info("Generated salary register saved to {}.", filePath.toAbsolutePath());

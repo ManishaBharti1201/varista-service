@@ -13,8 +13,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -35,9 +36,9 @@ public class QuotationMapper {
         String invoiceId = String.format("INV-%d-%d", buyerInfo.getId(), System.currentTimeMillis());
         invoiceData.setInvoiceId(Long.valueOf(String.format("%d%d", buyerInfo.getId(), System.currentTimeMillis())));
         invoiceData.setInvoiceNo(invoiceId);
-        LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        invoiceData.setDated(now.format(formatter));
+        invoiceData.setDated(invoiceRequest.getCreatedAt() != null
+                ? invoiceRequest.getCreatedAt()
+                : LocalDate.now(ZoneOffset.UTC));
         // Map seller and buyer details
         getBuyerInfo(buyerInfo, invoiceData);
 
@@ -140,9 +141,12 @@ public class QuotationMapper {
         } else {
             log.warn("mapInvoiceRequestToInvoiceEntity called with null InvoiceRequest");
         }
-        invoice.setCreatedAt(LocalDateTime.now());
+        Instant now = Instant.now();
+        invoice.setCreatedAt(now);
+        invoice.setInvoiceDate(invoiceRequest != null && invoiceRequest.getCreatedAt() != null
+                ? invoiceRequest.getCreatedAt() : LocalDate.now(ZoneOffset.UTC));
         invoice.setStatus("Pending"); // Assuming 1 indicates 'Created'
-        invoice.setUpdatedAt(LocalDateTime.now());
+        invoice.setUpdatedAt(now);
 
         log.debug("mapInvoiceRequestToInvoiceEntity - end: companyId={}, totalAmount={}",
                 invoice.getCompanyId(), invoice.getTotalAmount());
@@ -166,8 +170,10 @@ public class QuotationMapper {
                     dto.setBuyer(company);
 
                     dto.setTotalAmount(invoice.getTotalAmount());
-                    dto.setDated(invoice.getCreatedAt() != null
-                            ? invoice.getCreatedAt().toString()
+                    dto.setDated(invoice.getInvoiceDate() != null
+                            ? invoice.getInvoiceDate()
+                            : invoice.getCreatedAt() != null
+                            ? invoice.getCreatedAt().atZone(ZoneOffset.UTC).toLocalDate()
                             : null);
                     dto.setInvoiceNo(invoice.getInvoiceNumber());
                     dto.setInvoiceId(invoice.getId());

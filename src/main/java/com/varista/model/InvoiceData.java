@@ -8,13 +8,14 @@ import jakarta.persistence.Id;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
 public class InvoiceData {
     private Long invoiceId;
     private String invoiceNo;
-    private String dated;
+    private LocalDate dated;
     private CompanyInfo seller;
     private CompanyInfo buyer;
     private List<Item> items;

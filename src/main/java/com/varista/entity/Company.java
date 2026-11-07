@@ -3,11 +3,9 @@ package com.varista.entity;
 import com.varista.model.Address;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Generated;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Date;
+import java.time.Instant;
 
 
 @Entity
@@ -21,7 +19,7 @@ public class Company {
     private String gstin;
     private String email;
     private String phone;        // changed from BigDecimal → String
-    private LocalDateTime createdAt ;
+    private Instant createdAt;
     private BigDecimal ledgerBalance;
 
 }

@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,7 +38,7 @@ public class CompanyService {
         company.setGstin(companyInfo.getGstin());
         company.setEmail(companyInfo.getEmail());
         company.setPhone(companyInfo.getPhone());
-        company.setCreatedAt(LocalDateTime.now());
+        company.setCreatedAt(Instant.now());
         Company savedCompany = companyRepository.save(company);
         log.info("Company created successfully with ID: {}", savedCompany.getId());
         return savedCompany;
@@ -66,8 +65,6 @@ public class CompanyService {
         company.setGstin(paymentRequest.getGstin());
         company.setEmail(paymentRequest.getEmail());
         company.setPhone(paymentRequest.getPhone());
-        company.setCreatedAt(LocalDateTime.now()); // Use an update timestamp instead of createdAt
-
         // 4. Save and return
         Company updatedCompany = companyRepository.save(company);
         log.info("Payment updated successfully for company ID: {}", updatedCompany.getId());

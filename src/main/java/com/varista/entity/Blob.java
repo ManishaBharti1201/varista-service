@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "blob_records") // Assuming a table named 'blob_records'
@@ -27,7 +27,7 @@ public class Blob {
     private String contentType; // e.g., "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
     @Column(nullable = false)
-    private LocalDateTime creationDate;
+    private Instant creationDate;
 
     @Column(nullable = false)
     private String relatedEntityName;

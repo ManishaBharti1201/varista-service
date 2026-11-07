@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Locale;
@@ -145,7 +145,7 @@ public class UserService {
         }
 
         userRepository.findByEmailIgnoreCaseAndOrgId(email, tenantId).ifPresent(user -> {
-            LocalDateTime now = LocalDateTime.now();
+            Instant now = Instant.now();
             boolean resendCoolingDown = passwordResetTokenRepository
                     .findTopByEmailIgnoreCaseOrderByCreatedAtDesc(email)
                     .map(token -> token.getCreatedAt().isAfter(now.minusSeconds(PASSWORD_RESET_RESEND_DELAY_SECONDS)))
@@ -159,7 +159,7 @@ public class UserService {
             resetToken.setEmail(email);
             resetToken.setCodeHash(hashVerificationCode(verificationCode));
             resetToken.setCreatedAt(now);
-            resetToken.setExpiresAt(resetToken.getCreatedAt().plusMinutes(PASSWORD_RESET_CODE_EXPIRY_MINUTES));
+            resetToken.setExpiresAt(resetToken.getCreatedAt().plusSeconds(PASSWORD_RESET_CODE_EXPIRY_MINUTES * 60L));
             resetToken.setFailedAttempts(0);
 
             passwordResetTokenRepository.deleteByEmailIgnoreCase(email);
@@ -189,7 +189,7 @@ public class UserService {
                 .findTopByEmailIgnoreCaseOrderByCreatedAtDesc(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid or expired verification code."));
 
-        if (!resetToken.getExpiresAt().isAfter(LocalDateTime.now())
+        if (!resetToken.getExpiresAt().isAfter(Instant.now())
                 || resetToken.getFailedAttempts() >= MAX_PASSWORD_RESET_ATTEMPTS) {
             passwordResetTokenRepository.delete(resetToken);
             throw new IllegalArgumentException("Invalid or expired verification code.");

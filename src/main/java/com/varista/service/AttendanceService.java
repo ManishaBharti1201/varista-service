@@ -26,8 +26,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.format.TextStyle;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,6 +37,14 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class AttendanceService {
+    private static final DateTimeFormatter ATTENDANCE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter[] ATTENDANCE_TIME_INPUT_FORMATS = {
+            DateTimeFormatter.ISO_LOCAL_TIME,
+            DateTimeFormatter.ofPattern("H:mm"),
+            DateTimeFormatter.ofPattern("H:mm:ss"),
+            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("h:mm:ss a", Locale.ENGLISH)
+    };
 
     @Autowired
     private AttendanceRepository attendanceRepository;
@@ -74,8 +84,8 @@ public class AttendanceService {
                 record.setAttendDate(convertExcelDate(row.getCell(7)));
                 record.setEmployeeId(excelUtils.getCellValue(row.getCell(4)));
                 record.setEmployeeName(excelUtils.getCellValue(row.getCell(5)));
-                record.setInTime(excelUtils.getCellValue(row.getCell(9)));
-                record.setOutTime(excelUtils.getCellValue(row.getCell(10)));
+                record.setInTime(normalizeAttendanceTime(row.getCell(9), "check-in", i + 1));
+                record.setOutTime(normalizeAttendanceTime(row.getCell(10), "check-out", i + 1));
                 record.setTotalHours(excelUtils.getCellValue(row.getCell(12)));
                 record.setStatus(excelUtils.getCellValue(row.getCell(8)));
                 record.setTimesheetMonth(record.getAttendDate() != null ? record.getAttendDate().getMonth().toString() : "UNKNOWN");
@@ -231,9 +241,8 @@ public class AttendanceService {
         try {
             // If string parsing failed or was empty, try numeric (Excel date)
             if (cell.getCellType() == CellType.NUMERIC && org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
-                Date javaDate = cell.getDateCellValue();
-                LocalDate date = java.time.Instant.ofEpochMilli(javaDate.getTime())
-                        .atZone(java.time.ZoneId.systemDefault())
+                LocalDate date = org.apache.poi.ss.usermodel.DateUtil
+                        .getLocalDateTime(cell.getNumericCellValue())
                         .toLocalDate();
                 log.debug("Successfully parsed date '{}' from numeric Excel format.", date);
                 return date;
@@ -242,6 +251,31 @@ public class AttendanceService {
             log.error("Failed to convert Excel cell to date (numeric or string). Cell value: {}. Error: {}", excelUtils.getCellValue(cell), e.getMessage());
         }
         return null;
+    }
+
+    private String normalizeAttendanceTime(Cell cell, String fieldName, int rowNumber) throws InvalidAttendanceWorkbookException {
+        String value = excelUtils.getCellValue(cell);
+        if (value.isBlank()) return "";
+
+        for (DateTimeFormatter formatter : ATTENDANCE_TIME_INPUT_FORMATS) {
+            try {
+                return LocalTime.parse(value, formatter).format(ATTENDANCE_TIME_FORMAT);
+            } catch (DateTimeParseException ignored) {
+                // Try the supported workbook time formats.
+            }
+        }
+
+        if (cell != null && cell.getCellType() == CellType.NUMERIC
+                && org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+            return org.apache.poi.ss.usermodel.DateUtil.getLocalDateTime(cell.getNumericCellValue())
+                    .toLocalTime()
+                    .format(ATTENDANCE_TIME_FORMAT);
+        }
+
+        DateTimeParseException cause = new DateTimeParseException("Unsupported time format", value, 0);
+        throw new InvalidAttendanceWorkbookException(
+                "Invalid " + fieldName + " time at spreadsheet row " + rowNumber + ": " + value,
+                cause);
     }
 
     public TimesheetResponse getEmployeeTimesheet(long employeeId) {

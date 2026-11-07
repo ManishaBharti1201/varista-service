@@ -26,7 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -67,7 +67,8 @@ public class QuotationService {
             // Populate the HTML template (simplified example)
             String populatedHtml = htmlTemplate
                     .replace("{{quotationNbr}}", quotationId)
-                    .replace("{{createDate}}", quotationRequest.getCreationDate().toString())
+                    .replace("{{createDate}}", quotationRequest.getCreationDate()
+                            .format(DateTimeFormatter.ofPattern("dd-MM-yyyy")))
                     .replace("{{customer_name}}", quotationRequest.getCustomerName().replace("&", "&amp;"))
                     .replace("{{customer_email}}", quotationRequest.getCustomerEmail() == null ? "" : quotationRequest.getCustomerEmail())
                     .replace("{{tax_amount}}", String.valueOf(quotationRequest.getTaxAmount()))

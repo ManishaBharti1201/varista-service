@@ -29,7 +29,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -75,7 +76,7 @@ public class InvoiceService {
             // Populate the HTML template (simplified example)
             String populatedHtml = htmlTemplate
                     .replace("{{invoice_number}}", invoiceData.getInvoiceNo())
-                    .replace("{{invoice_date}}", invoiceData.getDated())
+                    .replace("{{invoice_date}}", invoiceData.getDated().format(DateTimeFormatter.ofPattern("dd-MM-yyyy")))
                     .replace("{{buyer_name}}", invoiceData.getBuyer().getName().replace("&", "&amp;"))
                     .replace("{{buyer_address_line1}}", invoiceData.getBuyer().getAddress().getAddressLine1())
                     .replace("{{buyer_address_line2}}", invoiceData.getBuyer().getAddress().getAddressLine2())
@@ -111,7 +112,7 @@ public class InvoiceService {
 
             invoiceResponse.setInvoiceId(invoiceData.getInvoiceId());
             invoiceResponse.setInvoiceNumber(invoiceData.getInvoiceNo());
-            invoiceResponse.setCreatedAt(LocalDateTime.now().toString());
+            invoiceResponse.setCreatedAt(Instant.now().toString());
             invoiceResponse.setAmount(invoiceData.getTotalAmount().toString());
             invoiceResponse.setStatus("SUCCESS");
             invoiceResponse.setMessage("Invoice PDF generated successfully");
@@ -264,6 +265,7 @@ public class InvoiceService {
         Invoice existingInvoice = invoiceRepository.findById(id)
                 .map(invoice -> {
                     invoice.setStatus("Paid");
+                    invoice.setUpdatedAt(Instant.now());
                     Invoice updatedInvoice = invoiceRepository.save(invoice);
                     log.info("Invoice with ID: {} marked as Paid and saved.", id);
                     return updatedInvoice;

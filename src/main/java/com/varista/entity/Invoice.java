@@ -7,8 +7,8 @@ import jakarta.persistence.Id;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Data
@@ -16,9 +16,10 @@ public class Invoice {
     @Id
     private Long id;
     private Long companyId;
-    private LocalDateTime createdAt =  LocalDateTime.now();
+    private Instant createdAt = Instant.now();
+    private LocalDate invoiceDate;
     private String invoiceNumber;
     private String status;
     private BigDecimal totalAmount;
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 }

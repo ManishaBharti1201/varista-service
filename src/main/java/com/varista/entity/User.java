@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Data
@@ -26,8 +25,8 @@ public class User {
     @Column(name = "avatar", columnDefinition = "LONGTEXT")
     private String avatar;
     private String password;
-    private LocalDateTime createDate =  LocalDateTime.now();
+    private Instant createDate = Instant.now();
     @UpdateTimestamp
-    private LocalDateTime lastUpdateDate;
+    private Instant lastUpdateDate;
 
 }

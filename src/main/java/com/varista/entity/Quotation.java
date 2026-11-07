@@ -1,13 +1,10 @@
 package com.varista.entity;
 
-import com.varista.model.InvoiceData;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import lombok.Data;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
+import java.time.Instant;
 
 @Entity
 @Data
@@ -18,5 +15,5 @@ public class Quotation {
     private String customerName;
     private String customerEmail;
     private Double totalAmount;
-    private LocalDateTime creationDate =  LocalDateTime.now();
+    private Instant creationDate = Instant.now();
 }

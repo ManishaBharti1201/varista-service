@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -41,7 +42,7 @@ public class EmployeeService {
                     .ifPresent(existing -> preservePayrollProfile(employeeInfo, existing));
         }
         if (employeeInfo.getJoiningDate() == null) {
-            employeeInfo.setJoiningDate(LocalDate.now());
+            employeeInfo.setJoiningDate(LocalDate.now(ZoneOffset.UTC));
             log.debug("Set joining date to current date for employee ID: {}", employeeInfo.getId());
         }
         Employee savedEmployee = employeeRepository.save(employeeInfo);
