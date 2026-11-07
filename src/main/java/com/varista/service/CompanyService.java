@@ -3,7 +3,6 @@ package com.varista.service;
 import com.varista.entity.Company;
 import com.varista.model.CompanyInfo;
 import com.varista.repository.CompanyRepository;
-import com.varista.utils.InvoiceUtils;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +34,6 @@ public class CompanyService {
     public Company createCompany(CompanyInfo companyInfo) {
         log.info("Creating new company with name: {}", companyInfo.getName());
         Company company = new Company();
-        company.setId(InvoiceUtils.generate5DigitId());
         company.setName(companyInfo.getName());
         company.setAddress(companyInfo.getAddress());
         company.setGstin(companyInfo.getGstin());
